@@ -6,76 +6,60 @@
 
 package dan200.computercraft.shared.network.container;
 
-import dan200.computercraft.shared.network.NetworkHandler;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.inventory.Container;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.fabricmc.fabric.api.client.gui.GuiProviderRegistry;
+import net.fabricmc.fabric.api.container.ContainerProviderRegistry;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.ContainerScreen;
+import net.minecraft.container.Container;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.player.PlayerInventory;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
-/**
- * A horrible hack to allow opening GUIs until Forge adds a built-in system.
- */
 public interface ContainerType<T extends Container>
 {
     @Nonnull
-    ResourceLocation getId();
+    Identifier getId();
 
-    void toBytes( PacketBuffer buf );
+    void toBytes( PacketByteBuf buf );
 
-    void fromBytes( PacketBuffer buf );
+    void fromBytes( PacketByteBuf buf );
 
-    default void open( EntityPlayer player )
+    default void open( PlayerEntity player )
     {
-        EntityPlayerMP serverPlayer = (EntityPlayerMP) player;
-
-        @SuppressWarnings( "unchecked" )
-        Container container = ((BiFunction<ContainerType<T>, EntityPlayer, ? extends Container>) containerFactories.get( getId() )).apply( this, serverPlayer );
-        if( container == null ) return;
-
-        if( serverPlayer.openContainer != serverPlayer.inventoryContainer ) serverPlayer.closeScreen();
-
-        serverPlayer.getNextWindowId();
-        container.windowId = serverPlayer.currentWindowId;
-        serverPlayer.openContainer = container;
-        container.addListener( serverPlayer );
-
-        MinecraftForge.EVENT_BUS.post( new PlayerContainerEvent.Open( serverPlayer, container ) );
-
-        NetworkHandler.sendToPlayer( serverPlayer, new OpenGuiClientMessage( serverPlayer.currentWindowId, this ) );
+        ContainerProviderRegistry.INSTANCE.openContainer( getId(), player, this::toBytes );
     }
 
-    static <C extends Container, T extends ContainerType<C>> void register( Supplier<T> containerType, BiFunction<T, EntityPlayer, C> factory )
+    static <C extends Container, T extends ContainerType<C>> void register( Supplier<T> containerType, ContainerFactory<T, C> factory )
     {
-        factories.put( containerType.get().getId(), containerType );
-        containerFactories.put( containerType.get().getId(), factory );
-    }
-
-    static <C extends Container, T extends ContainerType<C>> void registerGui( Supplier<T> containerType, BiFunction<T, EntityPlayer, GuiContainer> factory )
-    {
-        guiFactories.put( containerType.get().getId(), factory );
-    }
-
-    static <C extends Container, T extends ContainerType<C>> void registerGui( Supplier<T> containerType, Function<C, GuiContainer> factory )
-    {
-        registerGui( containerType, ( type, player ) -> {
-            @SuppressWarnings( "unchecked" )
-            C container = ((BiFunction<T, EntityPlayer, C>) containerFactories.get( type.getId() )).apply( type, player );
-            return container == null ? null : factory.apply( container );
+        ContainerProviderRegistry.INSTANCE.registerFactory( containerType.get().getId(), ( id, type, player, packet ) -> {
+            T container = containerType.get();
+            container.fromBytes( packet );
+            return factory.apply( id, container, player );
         } );
     }
 
-    Map<ResourceLocation, Supplier<? extends ContainerType<?>>> factories = new HashMap<>();
-    Map<ResourceLocation, BiFunction<? extends ContainerType<?>, EntityPlayer, GuiContainer>> guiFactories = new HashMap<>();
-    Map<ResourceLocation, BiFunction<? extends ContainerType<?>, EntityPlayer, ? extends Container>> containerFactories = new HashMap<>();
+    static <C extends Container, T extends ContainerType<C>> void registerGui( Supplier<T> containerType, ContainerFactory<T, ContainerScreen> factory )
+    {
+        GuiProviderRegistry.INSTANCE.registerFactory( containerType.get().getId(), ( id, type, player, packet ) -> {
+            T container = containerType.get();
+            container.fromBytes( packet );
+            return factory.apply( id, container, player );
+        } );
+    }
+
+    static <C extends Container, T extends ContainerType<C>> void registerGui( Supplier<T> containerType, BiFunction<C, PlayerInventory, ContainerScreen> factory )
+    {
+        GuiProviderRegistry.INSTANCE.<C>registerFactory( containerType.get().getId(), container ->
+            factory.apply( container, MinecraftClient.getInstance().player.inventory ) );
+    }
+
+    interface ContainerFactory<T, R>
+    {
+        R apply( int id, T input, PlayerEntity player );
+    }
 }

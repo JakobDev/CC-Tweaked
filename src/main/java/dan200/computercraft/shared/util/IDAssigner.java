@@ -7,7 +7,8 @@
 package dan200.computercraft.shared.util;
 
 import dan200.computercraft.ComputerCraft;
-import net.minecraftforge.common.DimensionManager;
+import net.fabricmc.loader.FabricLoader;
+import net.minecraft.world.dimension.DimensionType;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -20,7 +21,8 @@ public class IDAssigner
 
     public static File getWorldDir()
     {
-        return DimensionManager.getCurrentSaveRootDirectory();
+        return FabricLoader.INSTANCE.getEnvironmentHandler().getServerInstance()
+            .getWorld( DimensionType.OVERWORLD ).method_17982().getWorldDir();
     }
 
     public static int getNextIDFromDirectory( String path )

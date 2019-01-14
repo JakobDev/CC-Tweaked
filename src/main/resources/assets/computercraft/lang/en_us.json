@@ -1,5 +1,5 @@
 {
-    "itemGroup.computercraft": "ComputerCraft",
+    "itemGroup.computercraft.main": "ComputerCraft",
 
     "block.computercraft.computer_normal": "Computer",
     "block.computercraft.computer_advanced": "Advanced Computer",
@@ -86,7 +86,5 @@
     "gui.computercraft.config.turtle_normals_can_push": "Turtles can push entities",
     "gui.computercraft.config.turtle_normal_disabled_actions": "Disabled turtle_normal actions",
     "gui.computercraft.config.maximum_files_open": "Maximum files open per computer",
-    "gui.computercraft.config.max_notes_per_tick": "Maximum notes that a computer can play at once",
-
-    "itemGroup.computercraft.main": "ComputerCraft"
+    "gui.computercraft.config.max_notes_per_tick": "Maximum notes that a computer can play at once"
 }

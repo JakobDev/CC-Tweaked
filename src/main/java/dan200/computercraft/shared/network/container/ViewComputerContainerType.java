@@ -12,8 +12,8 @@ import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.computer.inventory.ContainerViewComputer;
 import dan200.computercraft.shared.util.NetworkUtil;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 
@@ -24,7 +24,7 @@ import javax.annotation.Nonnull;
  */
 public class ViewComputerContainerType implements ContainerType<ContainerViewComputer>
 {
-    public static final ResourceLocation ID = new ResourceLocation( ComputerCraft.MOD_ID, "view_computer_gui" );
+    public static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "view_computer_gui" );
 
     public int instanceId;
     public int width;
@@ -49,13 +49,13 @@ public class ViewComputerContainerType implements ContainerType<ContainerViewCom
 
     @Nonnull
     @Override
-    public ResourceLocation getId()
+    public Identifier getId()
     {
         return ID;
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeVarInt( instanceId );
         buf.writeVarInt( width );
@@ -64,7 +64,7 @@ public class ViewComputerContainerType implements ContainerType<ContainerViewCom
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         instanceId = buf.readVarInt();
         width = buf.readVarInt();

@@ -6,11 +6,9 @@
 
 package dan200.computercraft.shared.peripheral.monitor;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.shared.common.ClientTerminal;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.api.distmarker.OnlyIn;
 
 import java.util.HashSet;
 import java.util.Iterator;
@@ -37,7 +35,6 @@ public class ClientMonitor extends ClientTerminal
         return origin;
     }
 
-    @OnlyIn( Dist.CLIENT )
     public void createLists()
     {
         if( renderDisplayLists == null )
@@ -56,7 +53,6 @@ public class ClientMonitor extends ClientTerminal
         }
     }
 
-    @OnlyIn( Dist.CLIENT )
     public void destroy()
     {
         if( renderDisplayLists != null )
@@ -75,7 +71,6 @@ public class ClientMonitor extends ClientTerminal
         }
     }
 
-    @OnlyIn( Dist.CLIENT )
     public static void destroyAll()
     {
         synchronized( allMonitors )

@@ -10,22 +10,15 @@ import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.ComputerCraftAPI;
 import dan200.computercraft.core.computer.MainThread;
 import dan200.computercraft.core.tracking.Tracking;
-import dan200.computercraft.shared.Config;
+import dan200.computercraft.shared.Registry;
 import dan200.computercraft.shared.command.CommandComputerCraft;
 import dan200.computercraft.shared.command.arguments.ArgumentSerializers;
-import dan200.computercraft.shared.common.ColourableRecipe;
 import dan200.computercraft.shared.common.ContainerHeldItem;
 import dan200.computercraft.shared.common.DefaultBundledRedstoneProvider;
 import dan200.computercraft.shared.computer.blocks.TileComputer;
-import dan200.computercraft.shared.computer.core.IComputer;
-import dan200.computercraft.shared.computer.core.IContainerComputer;
-import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.computer.inventory.ContainerComputer;
 import dan200.computercraft.shared.computer.inventory.ContainerViewComputer;
-import dan200.computercraft.shared.computer.recipe.ComputerUpgradeRecipe;
 import dan200.computercraft.shared.media.DefaultMediaProvider;
-import dan200.computercraft.shared.media.recipes.DiskRecipe;
-import dan200.computercraft.shared.media.recipes.PrintoutRecipe;
 import dan200.computercraft.shared.network.container.*;
 import dan200.computercraft.shared.peripheral.DefaultPeripheralProvider;
 import dan200.computercraft.shared.peripheral.commandblock.CommandBlockPeripheralProvider;
@@ -35,44 +28,27 @@ import dan200.computercraft.shared.peripheral.modem.wireless.WirelessNetwork;
 import dan200.computercraft.shared.peripheral.printer.ContainerPrinter;
 import dan200.computercraft.shared.peripheral.printer.TilePrinter;
 import dan200.computercraft.shared.pocket.inventory.ContainerPocketComputer;
-import dan200.computercraft.shared.pocket.recipes.PocketComputerUpgradeRecipe;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
 import dan200.computercraft.shared.turtle.inventory.ContainerTurtle;
-import dan200.computercraft.shared.turtle.recipes.TurtleRecipe;
-import dan200.computercraft.shared.turtle.recipes.TurtleUpgradeRecipe;
-import dan200.computercraft.shared.util.ImpostorShapelessRecipe;
-import dan200.computercraft.shared.wired.CapabilityWiredElement;
-import net.minecraft.inventory.Container;
-import net.minecraft.item.crafting.RecipeSerializers;
-import net.minecraftforge.event.entity.player.PlayerContainerEvent;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.event.ConfigChangedEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartedEvent;
-import net.minecraftforge.fml.event.server.FMLServerStartingEvent;
-import net.minecraftforge.fml.event.server.FMLServerStoppedEvent;
+import net.fabricmc.fabric.commands.CommandRegistry;
+import net.fabricmc.fabric.events.ServerEvent;
+import net.fabricmc.fabric.events.TickEvent;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.recipe.RecipeSerializer;
+import net.minecraft.util.registry.ModifiableRegistry;
 
 public class ComputerCraftProxyCommon
 {
-    @SubscribeEvent
-    public void init( FMLCommonSetupEvent event )
+    public void setup()
     {
-        // NetworkRegistry.INSTANCE.registerGuiHandler( ComputerCraft.instance, new GuiHandler() );
+        Registry.registerBlocks( net.minecraft.util.registry.Registry.BLOCK );
+        Registry.registerTileEntities( (ModifiableRegistry<BlockEntityType<?>>) net.minecraft.util.registry.Registry.BLOCK_ENTITY );
+        Registry.registerItems( net.minecraft.util.registry.Registry.ITEM );
+        Registry.registerRecipes( (ModifiableRegistry<RecipeSerializer<?>>) net.minecraft.util.registry.Registry.RECIPE_SERIALIZER );
 
-        // TODO: Make this thread-safe
         registerProviders();
         registerContainers();
-
-        RecipeSerializers.register( ColourableRecipe.SERIALIZER );
-        RecipeSerializers.register( ComputerUpgradeRecipe.SERIALIZER );
-        RecipeSerializers.register( PocketComputerUpgradeRecipe.SERIALIZER );
-        RecipeSerializers.register( DiskRecipe.SERIALIZER );
-        RecipeSerializers.register( PrintoutRecipe.SERIALIZER );
-        RecipeSerializers.register( TurtleRecipe.SERIALIZER );
-        RecipeSerializers.register( TurtleUpgradeRecipe.SERIALIZER );
-        RecipeSerializers.register( ImpostorShapelessRecipe.SERIALIZER );
+        registerHandlers();
 
         ArgumentSerializers.register();
 
@@ -95,27 +71,50 @@ public class ComputerCraftProxyCommon
         ComputerCraftAPI.registerMediaProvider( new DefaultMediaProvider() );
 
         // Register network providers
-        CapabilityWiredElement.register();
+        // CapabilityWiredElement.register();
     }
 
     private void registerContainers()
     {
-        ContainerType.register( BlockEntityContainerType::computer, ( packet, player ) ->
-            new ContainerComputer( (TileComputer) packet.getTileEntity( player ) ) );
-        ContainerType.register( BlockEntityContainerType::turtle, ( packet, player ) -> {
-            TileTurtle turtle = (TileTurtle) packet.getTileEntity( player );
-            return new ContainerTurtle( player.inventory, turtle.getAccess(), turtle.getServerComputer() );
+        ContainerType.register( BlockEntityContainerType::computer, ( id, packet, player ) ->
+            new ContainerComputer( id, (TileComputer) packet.getBlockEntity( player ) ) );
+        ContainerType.register( BlockEntityContainerType::turtle, ( id, packet, player ) -> {
+            TileTurtle turtle = (TileTurtle) packet.getBlockEntity( player );
+            return new ContainerTurtle( id, player.inventory, turtle.getAccess(), turtle.getServerComputer() );
         } );
-        ContainerType.register( BlockEntityContainerType::diskDrive, ( packet, player ) ->
-            new ContainerDiskDrive( player.inventory, (TileDiskDrive) packet.getTileEntity( player ) ) );
-        ContainerType.register( BlockEntityContainerType::printer, ( packet, player ) ->
-            new ContainerPrinter( player.inventory, (TilePrinter) packet.getTileEntity( player ) ) );
+        ContainerType.register( BlockEntityContainerType::diskDrive, ( id, packet, player ) ->
+            new ContainerDiskDrive( id, player.inventory, (TileDiskDrive) packet.getBlockEntity( player ) ) );
+        ContainerType.register( BlockEntityContainerType::printer, ( id, packet, player ) ->
+            new ContainerPrinter( id, player.inventory, (TilePrinter) packet.getBlockEntity( player ) ) );
 
-        ContainerType.register( PocketComputerContainerType::new, ( packet, player ) -> new ContainerPocketComputer( player, packet.hand ) );
-        ContainerType.register( PrintoutContainerType::new, ( packet, player ) -> new ContainerHeldItem( player, packet.hand ) );
-        ContainerType.register( ViewComputerContainerType::new, ( packet, player ) -> new ContainerViewComputer( ComputerCraft.serverComputerRegistry.get( packet.instanceId ) ) );
+        ContainerType.register( PocketComputerContainerType::new, ( id, packet, player ) -> new ContainerPocketComputer( id, player, packet.hand ) );
+        ContainerType.register( PrintoutContainerType::new, ( id, packet, player ) -> new ContainerHeldItem( id, player, packet.hand ) );
+        ContainerType.register( ViewComputerContainerType::new, ( id, packet, player ) -> new ContainerViewComputer( id, ComputerCraft.serverComputerRegistry.get( packet.instanceId ) ) );
     }
 
+    private void registerHandlers()
+    {
+        CommandRegistry.INSTANCE.register( false, CommandComputerCraft::register );
+
+        TickEvent.SERVER.register( server -> {
+            MainThread.executePendingTasks();
+            ComputerCraft.serverComputerRegistry.update();
+        } );
+
+        ServerEvent.START.register( server -> {
+            ComputerCraft.serverComputerRegistry.reset();
+            WirelessNetwork.resetNetworks();
+            Tracking.reset();
+        } );
+
+        ServerEvent.STOP.register( server -> {
+            ComputerCraft.serverComputerRegistry.reset();
+            WirelessNetwork.resetNetworks();
+            Tracking.reset();
+        } );
+    }
+
+    /*
     @Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID )
     public final static class ForgeHandlers
     {
@@ -135,26 +134,7 @@ public class ComputerCraftProxyCommon
         {
             ComputerCraft.clientComputerRegistry.reset();
         }
-        */
-
-        @SubscribeEvent
-        public static void onClientTick( TickEvent.ClientTickEvent event )
-        {
-            if( event.phase == TickEvent.Phase.START )
-            {
-                ComputerCraft.clientComputerRegistry.update();
-            }
-        }
-
-        @SubscribeEvent
-        public static void onServerTick( TickEvent.ServerTickEvent event )
-        {
-            if( event.phase == TickEvent.Phase.START )
-            {
-                MainThread.executePendingTasks();
-                ComputerCraft.serverComputerRegistry.update();
-            }
-        }
+        *//*
 
         @SubscribeEvent
         public static void onConfigChanged( ConfigChangedEvent.OnConfigChangedEvent event )
@@ -176,27 +156,6 @@ public class ComputerCraftProxyCommon
                 }
             }
         }
-
-        @SubscribeEvent
-        public static void onServerStarting( FMLServerStartingEvent event )
-        {
-            CommandComputerCraft.register( event.getCommandDispatcher() );
-        }
-
-        @SubscribeEvent
-        public static void onServerStarted( FMLServerStartedEvent event )
-        {
-            ComputerCraft.serverComputerRegistry.reset();
-            WirelessNetwork.resetNetworks();
-            Tracking.reset();
-        }
-
-        @SubscribeEvent
-        public static void onServerStopped( FMLServerStoppedEvent event )
-        {
-            ComputerCraft.serverComputerRegistry.reset();
-            WirelessNetwork.resetNetworks();
-            Tracking.reset();
-        }
     }
+    */
 }

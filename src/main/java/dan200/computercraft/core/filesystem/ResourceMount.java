@@ -11,12 +11,11 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.io.ByteStreams;
 import dan200.computercraft.api.filesystem.IMount;
 import dan200.computercraft.core.apis.handles.ArrayByteChannel;
-import net.minecraft.resources.IReloadableResourceManager;
-import net.minecraft.resources.IResource;
-import net.minecraft.resources.IResourceManager;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.resource.IResourceType;
-import net.minecraftforge.resource.ISelectiveResourceReloadListener;
+import net.minecraft.resource.ReloadableResourceManager;
+import net.minecraft.resource.Resource;
+import net.minecraft.resource.ResourceManager;
+import net.minecraft.resource.ResourceReloadListener;
+import net.minecraft.util.Identifier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -30,7 +29,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 public class ResourceMount implements IMount
 {
@@ -60,25 +58,25 @@ public class ResourceMount implements IMount
 
     private final String namespace;
     private final String subPath;
-    private final IReloadableResourceManager manager;
+    private final ReloadableResourceManager manager;
 
     @Nullable
     private FileEntry root;
 
-    public ResourceMount( String namespace, String subPath, IReloadableResourceManager manager )
+    public ResourceMount( String namespace, String subPath, ReloadableResourceManager manager )
     {
         this.namespace = namespace;
         this.subPath = subPath;
         this.manager = manager;
 
-        this.manager.addReloadListener( new Listener( this ) );
+        this.manager.addListener( new Listener( this ) );
     }
 
     private void load()
     {
         boolean hasAny = false;
-        FileEntry newRoot = new FileEntry( new ResourceLocation( namespace, subPath ) );
-        for( ResourceLocation file : manager.getAllResourceLocations( subPath, s -> true ) )
+        FileEntry newRoot = new FileEntry( new Identifier( namespace, subPath ) );
+        for( Identifier file : manager.findResources( subPath, s -> true ) )
         {
             if( !file.getNamespace().equals( namespace ) ) continue;
 
@@ -121,7 +119,7 @@ public class ResourceMount implements IMount
             FileEntry nextEntry = lastEntry.children.get( part );
             if( nextEntry == null )
             {
-                lastEntry.children.put( part, nextEntry = new FileEntry( new ResourceLocation( namespace, subPath + "/" + path ) ) );
+                lastEntry.children.put( part, nextEntry = new FileEntry( new Identifier( namespace, subPath + "/" + path ) ) );
             }
 
             lastEntry = nextEntry;
@@ -165,7 +163,7 @@ public class ResourceMount implements IMount
 
             try
             {
-                IResource resource = manager.getResource( file.identifier );
+                Resource resource = manager.getResource( file.identifier );
                 InputStream s = resource.getInputStream();
                 int total = 0, read = 0;
                 do
@@ -221,11 +219,11 @@ public class ResourceMount implements IMount
 
     private class FileEntry
     {
-        final ResourceLocation identifier;
+        final Identifier identifier;
         Map<String, FileEntry> children;
         long size = -1;
 
-        FileEntry( ResourceLocation identifier )
+        FileEntry( Identifier identifier )
         {
             this.identifier = identifier;
         }
@@ -242,14 +240,14 @@ public class ResourceMount implements IMount
     }
 
     /**
-     * A {@link ISelectiveResourceReloadListener} which refers to the {@link ResourceMount} weakly.
+     * A {@link ResourceReloadListener} which refers to the {@link ResourceMount} weakly.
      *
      * While people should really be keeping a permanent reference to this, some people construct it every
      * method call, so let's make this as small as possible.
      *
      * TODO: Make this a shared one instead, which reloads all mounts.
      */
-    static class Listener implements ISelectiveResourceReloadListener
+    static class Listener implements ResourceReloadListener
     {
         private final WeakReference<ResourceMount> ref;
 
@@ -259,7 +257,7 @@ public class ResourceMount implements IMount
         }
 
         @Override
-        public void onResourceManagerReload( @Nonnull IResourceManager manager, Predicate<IResourceType> predicate )
+        public void onResourceReload( ResourceManager manager )
         {
             ResourceMount mount = ref.get();
             if( mount != null ) mount.load();

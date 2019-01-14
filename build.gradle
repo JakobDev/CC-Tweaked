@@ -1,20 +1,14 @@
 buildscript {
-    repositories {
-        maven { url = 'https://files.minecraftforge.net/maven' }
-        jcenter()
-        mavenCentral()
-    }
     dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
         classpath 'org.ajoberstar.grgit:grgit-gradle:3.0.0'
     }
 }
 
 plugins {
+    id 'fabric-loom' version '0.2.0-SNAPSHOT'
     // id 'com.matthewprenger.cursegradle' version '1.1.2'
 }
 
-apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'org.ajoberstar.grgit'
 apply plugin: 'maven-publish'
 apply plugin: 'maven'
@@ -27,20 +21,6 @@ group = "org.squiddev"
 archivesBaseName = "cc-tweaked"
 
 minecraft {
-    runs {
-        client = {
-            workingDirectory project.file('run').canonicalPath
-            source sourceSets.main
-        }
-        server = {
-            workingDirectory project.file('run').canonicalPath
-        }
-    }
-
-    mappings channel: 'snapshot', version: '20190118-1.13.1'
-    // makeObfSourceJar = false
-
-    accessTransformer file('src/main/resources/META-INF/computercraft_at.cfg')
 }
 
 repositories {
@@ -63,10 +43,16 @@ configurations {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge.test:forge:1.13-24.0.146-1.13-pre'
+    minecraft "com.mojang:minecraft:19w05a"
+    mappings "net.fabricmc:yarn:19w05a.5"
+    modCompile "net.fabricmc:fabric-loader:0.3.4.104"
+    modCompile "net.fabricmc:fabric:0.1.5.87"
 
     // deobfProvided "mezz.jei:jei_1.12.2:4.8.5.159:api"
     // deobfProvided "pl.asie:Charset-Lib:0.5.4.6"
+
+    compileOnly 'edu.washington.cs.types.checker:checker-framework:1.7.5'
+    testCompileOnly 'edu.washington.cs.types.checker:checker-framework:1.7.5'
 
     shade 'org.squiddev:Cobalt:0.4.0'
 
@@ -78,6 +64,7 @@ dependencies {
 sourceSets {
     main {
         java {
+            exclude 'dan200/computercraft/client/render_old'
             exclude 'dan200/computercraft/shared/integration'
         }
     }
@@ -107,7 +94,7 @@ import org.ajoberstar.grgit.Grgit
 
 processResources {
     inputs.property "version", project.version
-    inputs.property "mcversion", '1.13'
+    inputs.property "mcversion", '1.14'
 
     def hash = 'none'
     Set<String> contributors = []
@@ -125,16 +112,16 @@ processResources {
     inputs.property "commithash", hash
 
     from(sourceSets.main.resources.srcDirs) {
-        include 'META-INF/mods.toml'
+        include 'mods.json'
         include 'data/computercraft/lua/rom/help/credits.txt'
 
         expand 'version':project.version,
-               'mcversion':'1.13',
+               'mcversion':'1.14',
                'gitcontributors':contributors.sort(false, String.CASE_INSENSITIVE_ORDER).join('\n')
     }
 
     from(sourceSets.main.resources.srcDirs) {
-        exclude 'META-INF/mods.toml'
+        exclude 'mods.json'
         exclude 'data/computercraft/lua/rom/help/credits.txt'
     }
 }
@@ -209,5 +196,5 @@ gradle.projectsEvaluated {
     }
 }
 
-// runClient.outputs.upToDateWhen { false }
-// runServer.outputs.upToDateWhen { false }
+runClient.outputs.upToDateWhen { false }
+runServer.outputs.upToDateWhen { false }

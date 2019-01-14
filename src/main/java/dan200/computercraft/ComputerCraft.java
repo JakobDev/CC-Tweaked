@@ -13,7 +13,6 @@ import dan200.computercraft.client.proxy.ComputerCraftProxyClient;
 import dan200.computercraft.core.apis.AddressPredicate;
 import dan200.computercraft.core.apis.http.websocket.Websocket;
 import dan200.computercraft.core.filesystem.ResourceMount;
-import dan200.computercraft.shared.Config;
 import dan200.computercraft.shared.computer.blocks.BlockComputer;
 import dan200.computercraft.shared.computer.blocks.TileComputer;
 import dan200.computercraft.shared.computer.core.ClientComputerRegistry;
@@ -48,31 +47,28 @@ import dan200.computercraft.shared.turtle.blocks.BlockTurtle;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
 import dan200.computercraft.shared.turtle.items.ItemTurtle;
 import dan200.computercraft.shared.turtle.upgrades.*;
-import net.minecraft.entity.player.EntityPlayer;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.ModInitializer;
+import net.fabricmc.loader.FabricLoader;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.resources.IReloadableResourceManager;
+import net.minecraft.resource.ReloadableResourceManager;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SoundEvent;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.DistExecutor;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.javafmlmod.FMLModLoadingContext;
-import net.minecraftforge.fml.server.ServerLifecycleHooks;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Paths;
 import java.util.EnumSet;
 
-@Mod( ComputerCraft.MOD_ID )
-public class ComputerCraft
+public class ComputerCraft implements ModInitializer
 {
     public static final String MOD_ID = "computercraft";
     public static final int DATAFIXER_VERSION = 0;
@@ -206,21 +202,35 @@ public class ComputerCraft
     // Logging
     public static final Logger log = LogManager.getLogger( MOD_ID );
 
+    // Implementation
+    public static ComputerCraft instance;
+
     public ComputerCraft()
     {
+        instance = this;
+    }
+
+    @Override
+    public void onInitialize()
+    {
         NetworkHandler.setup();
-        Config.load( Paths.get( "config", ComputerCraft.MOD_ID + ".toml" ) );
 
-        // Implementation
-        FMLModLoadingContext.get().getModEventBus().register( DistExecutor.runForDist(
-            () -> ComputerCraftProxyClient::new,
-            () -> ComputerCraftProxyCommon::new
-        ) );
+        ComputerCraftProxyCommon proxy;
+        CCTurtleProxyCommon turtleProxy;
 
-        FMLModLoadingContext.get().getModEventBus().register( DistExecutor.runForDist(
-            () -> CCTurtleProxyClient::new,
-            () -> CCTurtleProxyCommon::new
-        ) );
+        if( FabricLoader.INSTANCE.getEnvironmentHandler().getEnvironmentType() == EnvType.CLIENT )
+        {
+            proxy = new ComputerCraftProxyClient();
+            turtleProxy = new CCTurtleProxyClient();
+        }
+        else
+        {
+            proxy = new ComputerCraftProxyCommon();
+            turtleProxy = new CCTurtleProxyCommon();
+        }
+
+        proxy.setup();
+        turtleProxy.setup();
     }
 
     public static String getVersion()
@@ -237,73 +247,90 @@ public class ComputerCraft
         NetworkHandler.sendToAllAround( packet, world, new Vec3d( pos ), 64 );
     }
 
-    public static void openDiskDriveGUI( EntityPlayer player, TileDiskDrive drive )
+    public static void openDiskDriveGUI( PlayerEntity player, TileDiskDrive drive )
     {
         BlockEntityContainerType.diskDrive( drive.getPos() ).open( player );
     }
 
-    public static void openComputerGUI( EntityPlayer player, TileComputer computer )
+    public static void openComputerGUI( PlayerEntity player, TileComputer computer )
     {
+        // Send an initial update of the terminal state
+        ServerComputer server = computer.getServerComputer();
+        if( server != null ) server.sendTerminalState( player );
+
+        // And open the container
         BlockEntityContainerType.computer( computer.getPos() ).open( player );
     }
 
-    public static void openPrinterGUI( EntityPlayer player, TilePrinter printer )
+    public static void openPrinterGUI( PlayerEntity player, TilePrinter printer )
     {
         BlockEntityContainerType.printer( printer.getPos() ).open( player );
     }
 
-    public static void openTurtleGUI( EntityPlayer player, TileTurtle turtle )
+    public static void openTurtleGUI( PlayerEntity player, TileTurtle turtle )
     {
+        // Send an initial update of the terminal state
+        ServerComputer server = turtle.getServerComputer();
+        if( server != null ) server.sendTerminalState( player );
+
         BlockEntityContainerType.turtle( turtle.getPos() ).open( player );
     }
 
-    public static void openPrintoutGUI( EntityPlayer player, EnumHand hand )
+    public static void openPrintoutGUI( PlayerEntity player, Hand hand )
     {
-        ItemStack stack = player.getHeldItem( hand );
+        ItemStack stack = player.getStackInHand( hand );
         Item item = stack.getItem();
         if( !(item instanceof ItemPrintout) ) return;
 
         new PrintoutContainerType( hand ).open( player );
     }
 
-    public static void openPocketComputerGUI( EntityPlayer player, EnumHand hand )
+    public static void openPocketComputerGUI( PlayerEntity player, Hand hand )
     {
-        ItemStack stack = player.getHeldItem( hand );
+        ItemStack stack = player.getStackInHand( hand );
         Item item = stack.getItem();
         if( !(item instanceof ItemPocketComputer) ) return;
+
+        ServerComputer computer = ItemPocketComputer.getServerComputer( stack );
+        if( computer == null ) return;
+        computer.sendTerminalState( player );
 
         new PocketComputerContainerType( hand ).open( player );
     }
 
-    public static void openComputerGUI( EntityPlayer player, ServerComputer computer )
+    public static void openComputerGUI( PlayerEntity player, ServerComputer computer )
     {
+        // Send an initial update of the terminal state
+        computer.sendTerminalState( player );
+
+        // And open the container
         new ViewComputerContainerType( computer ).open( player );
     }
 
-    public static boolean isPlayerOpped( EntityPlayer player )
+    public static boolean isPlayerOpped( PlayerEntity player )
     {
         MinecraftServer server = player.getServer();
         if( server != null )
         {
             // TODO: Verify this is correct and consistent with command blocks.
-            return server.getPlayerList().getOppedPlayers().getEntry( player.getGameProfile() ) != null;
+            return server.getPlayerManager().isOperator( player.getGameProfile() );
         }
         return false;
     }
 
     static IMount createResourceMount( String domain, String subPath )
     {
-        IReloadableResourceManager manager = ServerLifecycleHooks.getCurrentServer().getResourceManager();
+        ReloadableResourceManager manager = FabricLoader.INSTANCE.getEnvironmentHandler().getServerInstance().getDataManager();
         ResourceMount mount = new ResourceMount( domain, subPath, manager );
         return mount.exists( "" ) ? mount : null;
     }
 
     public static InputStream getResourceFile( String domain, String subPath )
     {
-        IReloadableResourceManager manager = ServerLifecycleHooks.getCurrentServer().getResourceManager();
+        ReloadableResourceManager manager = FabricLoader.INSTANCE.getEnvironmentHandler().getServerInstance().getDataManager();
         try
         {
-            return manager.getResource( new ResourceLocation( domain, subPath ) ).getInputStream();
+            return manager.getResource( new Identifier( domain, subPath ) ).getInputStream();
         }
         catch( IOException ignored )
         {

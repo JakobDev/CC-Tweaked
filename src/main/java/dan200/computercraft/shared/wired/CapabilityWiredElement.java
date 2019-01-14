@@ -8,20 +8,14 @@ package dan200.computercraft.shared.wired;
 
 import dan200.computercraft.api.network.wired.IWiredElement;
 import dan200.computercraft.api.network.wired.IWiredNode;
-import net.minecraft.nbt.INBTBase;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
-import net.minecraftforge.common.capabilities.CapabilityManager;
-import net.minecraftforge.common.util.LazyOptional;
 
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 
 public class CapabilityWiredElement
 {
+    /*
     @CapabilityInject( IWiredElement.class )
     public static Capability<IWiredElement> CAPABILITY = null;
 
@@ -29,6 +23,7 @@ public class CapabilityWiredElement
     {
         CapabilityManager.INSTANCE.register( IWiredElement.class, new NullStorage(), NullElement::new );
     }
+    */
 
     private static class NullElement implements IWiredElement
     {
@@ -61,26 +56,19 @@ public class CapabilityWiredElement
         }
     }
 
+    /*
     private static class NullStorage implements Capability.IStorage<IWiredElement>
     {
         @Override
-        public INBTBase writeNBT( Capability<IWiredElement> capability, IWiredElement instance, EnumFacing side )
+        public NBTBase writeNBT( Capability<IWiredElement> capability, IWiredElement instance, Direction side )
         {
             return null;
         }
 
         @Override
-        public void readNBT( Capability<IWiredElement> capability, IWiredElement instance, EnumFacing side, INBTBase base )
+        public void readNBT( Capability<IWiredElement> capability, IWiredElement instance, Direction side, NBTBase base )
         {
         }
     }
-
-    private static final IWiredElement NULL_ELEMENT = new NullElement();
-
-    @Nullable
-    public static IWiredElement unwrap( LazyOptional<IWiredElement> capability )
-    {
-        IWiredElement element = capability.orElse( NULL_ELEMENT );
-        return element == NULL_ELEMENT ? null : element;
-    }
+    */
 }

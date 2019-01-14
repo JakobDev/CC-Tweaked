@@ -11,28 +11,24 @@ import dan200.computercraft.shared.computer.blocks.TileComputerBase;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.turtle.items.TurtleItemFactory;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.BlockFaceShape;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.projectile.EntityFireball;
-import net.minecraft.item.BlockItemUseContext;
+import net.minecraft.block.BlockRenderType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.VerticalEntityPosition;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemPlacementContext;
 import net.minecraft.item.ItemStack;
-import net.minecraft.state.DirectionProperty;
-import net.minecraft.state.StateContainer;
-import net.minecraft.state.properties.BlockStateProperties;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.tileentity.TileEntityType;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.state.StateFactory;
+import net.minecraft.state.property.DirectionProperty;
+import net.minecraft.state.property.Properties;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.math.shapes.ShapeUtils;
-import net.minecraft.util.math.shapes.VoxelShape;
-import net.minecraft.world.Explosion;
-import net.minecraft.world.IBlockReader;
-import net.minecraft.world.IWorldReader;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
@@ -40,90 +36,75 @@ import javax.annotation.Nullable;
 
 public class BlockTurtle extends BlockComputerBase<TileTurtle>
 {
-    public static final DirectionProperty FACING = BlockStateProperties.HORIZONTAL_FACING;
+    public static final DirectionProperty FACING = Properties.FACING_HORIZONTAL;
 
-    private static final VoxelShape DEFAULT_SHAPE = ShapeUtils.create(
+    private static final VoxelShape DEFAULT_SHAPE = VoxelShapes.cube(
         0.125, 0.125, 0.125,
         0.875, 0.875, 0.875
     );
 
-    public BlockTurtle( Builder settings, ComputerFamily family, TileEntityType<TileTurtle> type )
+    public BlockTurtle( Settings settings, ComputerFamily family, BlockEntityType<TileTurtle> type )
     {
         super( settings, family, type );
-        setDefaultState( getStateContainer().getBaseState()
-            .with( FACING, EnumFacing.NORTH )
+        setDefaultState( getStateFactory().getDefaultState()
+            .with( FACING, Direction.NORTH )
         );
     }
 
-    @Nonnull
     @Override
     @Deprecated
-    public EnumBlockRenderType getRenderType( IBlockState state )
+    public BlockRenderType getRenderType( BlockState state )
     {
-        return EnumBlockRenderType.INVISIBLE;
+        return BlockRenderType.INVISIBLE;
+    }
+
+    @Override
+    protected void appendProperties( StateFactory.Builder<Block, BlockState> builder )
+    {
+        builder.with( FACING );
     }
 
     @Override
     @Deprecated
-    public boolean isFullCube( IBlockState state )
+    public VoxelShape getOutlineShape( BlockState state, BlockView world, BlockPos pos, VerticalEntityPosition position ) // TODO: getBoundingShape
     {
-        return false;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public BlockFaceShape getBlockFaceShape( IBlockReader world, IBlockState state, BlockPos pos, EnumFacing side )
-    {
-        return BlockFaceShape.UNDEFINED;
-    }
-
-    @Override
-    protected void fillStateContainer( StateContainer.Builder<Block, IBlockState> builder )
-    {
-        builder.add( FACING );
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public VoxelShape getShape( IBlockState state, IBlockReader world, BlockPos pos )
-    {
-        TileEntity tile = world.getTileEntity( pos );
+        BlockEntity tile = world.getBlockEntity( pos );
         Vec3d offset = tile instanceof TileTurtle ? ((TileTurtle) tile).getRenderOffset( 1.0f ) : Vec3d.ZERO;
-        return offset.equals( Vec3d.ZERO ) ? DEFAULT_SHAPE : DEFAULT_SHAPE.withOffset( offset.x, offset.y, offset.z );
+        return offset.equals( Vec3d.ZERO ) ? DEFAULT_SHAPE : DEFAULT_SHAPE.offset( offset.x, offset.y, offset.z );
     }
 
     @Nullable
     @Override
-    public IBlockState getStateForPlacement( BlockItemUseContext placement )
+    public BlockState getPlacementState( ItemPlacementContext placement )
     {
-        return getDefaultState().with( FACING, placement.getPlacementHorizontalFacing() );
+        return getDefaultState().with( FACING, placement.getPlayerHorizontalFacing() );
     }
 
     @Override
-    public void onBlockPlacedBy( World world, BlockPos pos, IBlockState state, @Nullable EntityLivingBase player, ItemStack itemStack )
+    public void onPlaced( World world, BlockPos pos, BlockState state, @Nullable LivingEntity player, ItemStack itemStack )
     {
-        super.onBlockPlacedBy( world, pos, state, player, itemStack );
+        super.onPlaced( world, pos, state, player, itemStack );
 
-        TileEntity tile = world.getTileEntity( pos );
-        if( !world.isRemote && tile instanceof TileTurtle && player instanceof EntityPlayer )
+        BlockEntity tile = world.getBlockEntity( pos );
+        if( !world.isClient && tile instanceof TileTurtle && player instanceof PlayerEntity )
         {
-            ((TileTurtle) tile).setOwningPlayer( ((EntityPlayer) player).getGameProfile() );
+            ((TileTurtle) tile).setOwningPlayer( ((PlayerEntity) player).getGameProfile() );
         }
-
     }
 
+    /*
     @Override
-    public float getExplosionResistance( IBlockState state, IWorldReader world, BlockPos pos, @Nullable Entity exploder, Explosion explosion )
+    @Deprecated
+    public float getExplosionResistance( Entity exploder )
     {
-        if( getFamily() == ComputerFamily.Advanced && (exploder instanceof EntityLivingBase || exploder instanceof EntityFireball) )
+        if( getFamily() == ComputerFamily.Advanced && (exploder instanceof LivingEntity || exploder instanceof FireballEntity) )
         {
             return 2000;
         }
 
-        return super.getExplosionResistance( state, world, pos, exploder, explosion );
+        return super.getExplosionResistance( exploder );
     }
+    */
 
     @Nonnull
     @Override

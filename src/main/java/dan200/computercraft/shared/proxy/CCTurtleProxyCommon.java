@@ -6,13 +6,9 @@
 
 package dan200.computercraft.shared.proxy;
 
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-
 public class CCTurtleProxyCommon
 {
-    @SubscribeEvent
-    public void setup( FMLCommonSetupEvent event )
+    public void setup()
     {
     }
 }

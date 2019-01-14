@@ -7,7 +7,7 @@
 package dan200.computercraft.shared.util;
 
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.PacketByteBuf;
 
 public final class NetworkUtil
 {
@@ -15,14 +15,14 @@ public final class NetworkUtil
     {
     }
 
-    public static void writeFamily( PacketBuffer buf, ComputerFamily family )
+    public static void writeFamily( PacketByteBuf buf, ComputerFamily family )
     {
         buf.writeVarInt( family.ordinal() );
     }
 
     private static final ComputerFamily[] FAMILIES = ComputerFamily.values();
 
-    public static ComputerFamily readFamily( PacketBuffer buf )
+    public static ComputerFamily readFamily( PacketByteBuf buf )
     {
         int idx = buf.readVarInt();
         return idx >= 0 && idx < FAMILIES.length ? FAMILIES[idx] : ComputerFamily.Normal;

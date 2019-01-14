@@ -6,23 +6,9 @@
 
 package dan200.computercraft.client;
 
-import dan200.computercraft.ComputerCraft;
-import net.minecraft.client.renderer.block.model.IUnbakedModel;
-import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.item.Item;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.client.event.ModelRegistryEvent;
-import net.minecraftforge.client.event.TextureStitchEvent;
-import net.minecraftforge.client.model.ModelLoaderRegistry;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.common.Mod;
-
 /**
  * Registers textures and models for items.
  */
-@Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID, value = Dist.CLIENT )
 public class ClientRegistry
 {
     private static final String[] TURTLE_UPGRADES = {
@@ -40,14 +26,14 @@ public class ClientRegistry
         "turtle_speaker_upgrade_right",
     };
 
-    @SubscribeEvent
-    public static void registerModels( ModelRegistryEvent event )
+    public static void registerModels()
     {
         String[] extraTurtleModels = new String[] { "turtle", "turtle_advanced", "turtle_white", "turtle_elf_overlay" };
-        registerUniversalItemModel( ComputerCraft.Items.turtleNormal, "turtle_dynamic", extraTurtleModels );
-        registerUniversalItemModel( ComputerCraft.Items.turtleAdvanced, "turtle_dynamic", extraTurtleModels );
+        // registerUniversalItemModel( ComputerCraft.Items.turtleNormal, "turtle_dynamic", extraTurtleModels );
+        // registerUniversalItemModel( ComputerCraft.Items.turtleAdvanced, "turtle_dynamic", extraTurtleModels );
     }
 
+    /*
     @SubscribeEvent
     public static void onTextureStitchEvent( TextureStitchEvent.Pre event )
     {
@@ -61,11 +47,10 @@ public class ClientRegistry
             {
                 map.registerSprite( texture );
             }
-            */
+            */  /*
         }
     }
 
-    @SubscribeEvent
     public static void onModelBakeEvent( ModelBakeEvent event )
     {
         // Load all upgrade models
@@ -78,13 +63,13 @@ public class ClientRegistry
     private static void registerUniversalItemModel( Item item, String mainModel, String... extraModels )
     {
 
-        ResourceLocation mainLocation = new ResourceLocation( ComputerCraft.MOD_ID, mainModel );
+        Identifier mainLocation = new Identifier( ComputerCraft.MOD_ID, mainModel );
 
-        ResourceLocation[] modelLocations = new ResourceLocation[extraModels.length + 1];
+        Identifier[] modelLocations = new Identifier[extraModels.length + 1];
         modelLocations[0] = mainLocation;
         for( int i = 0; i < extraModels.length; i++ )
         {
-            modelLocations[i + 1] = new ResourceLocation( ComputerCraft.MOD_ID, extraModels[i] );
+            modelLocations[i + 1] = new Identifier( ComputerCraft.MOD_ID, extraModels[i] );
         }
 
         /*
@@ -100,7 +85,7 @@ public class ClientRegistry
                 return mainModelLocation;
             }
         } );
-        */
+        */  /*
     }
 
     private static void loadBlockModel( ModelBakeEvent event, String name )
@@ -113,6 +98,7 @@ public class ClientRegistry
         );
 
         event.getModelRegistry().put( new ModelResourceLocation( ComputerCraft.MOD_ID + ":" + name, "inventory" ), bakedModel );
-        */
+        */ /*
     }
+    */
 }

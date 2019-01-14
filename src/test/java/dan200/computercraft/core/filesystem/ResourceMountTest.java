@@ -7,10 +7,10 @@
 package dan200.computercraft.core.filesystem;
 
 import dan200.computercraft.api.filesystem.IMount;
-import net.minecraft.resources.FilePack;
-import net.minecraft.resources.IReloadableResourceManager;
-import net.minecraft.resources.ResourcePackType;
-import net.minecraft.resources.SimpleReloadableResourceManager;
+import net.minecraft.resource.DirectoryResourcePack;
+import net.minecraft.resource.ReloadableResourceManager;
+import net.minecraft.resource.ReloadableResourceManagerImpl;
+import net.minecraft.resource.ResourceType;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -27,9 +27,9 @@ public class ResourceMountTest
     @Before
     public void setup()
     {
-        IReloadableResourceManager manager = new SimpleReloadableResourceManager( ResourcePackType.SERVER_DATA );
+        ReloadableResourceManager manager = new ReloadableResourceManagerImpl( ResourceType.DATA );
         manager.reload( Collections.singletonList(
-            new FilePack( new File( "src/main/resources" ) )
+            new DirectoryResourcePack( new File( "src/main/resources" ) )
         ) );
 
         mount = new ResourceMount( "computercraft", "lua/rom", manager );

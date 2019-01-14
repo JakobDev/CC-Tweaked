@@ -10,12 +10,12 @@ import dan200.computercraft.shared.command.text.ChatHelpers;
 import dan200.computercraft.shared.command.text.TableBuilder;
 import dan200.computercraft.shared.command.text.TableFormatter;
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.GuiNewChat;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.FontRenderer;
+import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.text.TextComponent;
+import net.minecraft.text.TextFormat;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextFormatting;
 import org.apache.commons.lang3.StringUtils;
 
 import javax.annotation.Nullable;
@@ -28,23 +28,23 @@ public class ClientTableFormatter implements TableFormatter
 
     private FontRenderer renderer()
     {
-        return Minecraft.getInstance().fontRenderer;
+        return MinecraftClient.getInstance().fontRenderer;
     }
 
     @Override
     @Nullable
-    public ITextComponent getPadding( ITextComponent component, int width )
+    public TextComponent getPadding( TextComponent component, int width )
     {
         int extraWidth = width - getWidth( component );
         if( extraWidth <= 0 ) return null;
 
         FontRenderer renderer = renderer();
 
-        float spaceWidth = renderer.getStringWidth( " " );
+        float spaceWidth = renderer.getCharWidth( ' ' );
         int spaces = MathHelper.floor( extraWidth / spaceWidth );
         int extra = extraWidth - (int) (spaces * spaceWidth);
 
-        return ChatHelpers.coloured( StringUtils.repeat( ' ', spaces ) + StringUtils.repeat( (char) 712, extra ), TextFormatting.GRAY );
+        return ChatHelpers.coloured( StringUtils.repeat( ' ', spaces ) + StringUtils.repeat( (char) 712, extra ), TextFormat.GRAY );
     }
 
     @Override
@@ -54,28 +54,28 @@ public class ClientTableFormatter implements TableFormatter
     }
 
     @Override
-    public int getWidth( ITextComponent component )
+    public int getWidth( TextComponent component )
     {
         return renderer().getStringWidth( component.getFormattedText() );
     }
 
     @Override
-    public void writeLine( int id, ITextComponent component )
+    public void writeLine( int id, TextComponent component )
     {
-        Minecraft.getInstance().ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion( component, id );
+        MinecraftClient.getInstance().inGameHud.getHudChat().addMessage( component, id );
     }
 
     @Override
     public int display( TableBuilder table )
     {
-        GuiNewChat chat = Minecraft.getInstance().ingameGUI.getChatGUI();
+        ChatHud chat = MinecraftClient.getInstance().inGameHud.getHudChat();
 
         int lastHeight = lastHeights.get( table.getId() );
 
         int height = TableFormatter.super.display( table );
         lastHeights.put( table.getId(), height );
 
-        for( int i = height; i < lastHeight; i++ ) chat.deleteChatLine( i + table.getId() );
+        for( int i = height; i < lastHeight; i++ ) chat.removeMessage( i + table.getId() );
         return height;
     }
 }

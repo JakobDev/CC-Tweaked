@@ -39,6 +39,20 @@ public abstract class ModemPeripheral implements IPeripheral, IPacketSender, IPa
         return m_state;
     }
 
+    @Deprecated
+    public boolean pollChanged()
+    {
+        // Only for backwards compatibiliy
+        return m_state.pollChanged();
+    }
+
+    @Deprecated
+    public boolean isActive()
+    {
+        // Only for backwards compatibiliy
+        return m_state.isOpen();
+    }
+
     private synchronized void setNetwork( IPacketNetwork network )
     {
         if( m_network == network ) return;
@@ -167,19 +181,21 @@ public abstract class ModemPeripheral implements IPeripheral, IPacketSender, IPa
                 int channel = parseChannel( arguments, 0 );
                 int replyChannel = parseChannel( arguments, 1 );
                 Object payload = arguments.length > 2 ? arguments[2] : null;
-                World world = getWorld();
-                Vec3d position = getPosition();
-                IPacketNetwork network = m_network;
-                if( world != null && position != null && network != null )
+                synchronized( this )
                 {
-                    Packet packet = new Packet( channel, replyChannel, payload, this );
-                    if( isInterdimensional() )
+                    World world = getWorld();
+                    Vec3d position = getPosition();
+                    if( world != null && position != null && m_network != null )
                     {
-                        network.transmitInterdimensional( packet );
-                    }
-                    else
-                    {
-                        network.transmitSameDimension( packet, getRange() );
+                        Packet packet = new Packet( channel, replyChannel, payload, this );
+                        if( isInterdimensional() )
+                        {
+                            m_network.transmitInterdimensional( packet );
+                        }
+                        else
+                        {
+                            m_network.transmitSameDimension( packet, getRange() );
+                        }
                     }
                 }
                 return null;

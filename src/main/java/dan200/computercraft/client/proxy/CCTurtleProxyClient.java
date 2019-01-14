@@ -8,36 +8,21 @@ package dan200.computercraft.client.proxy;
 
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.client.render.TileEntityTurtleRenderer;
-import dan200.computercraft.client.render.TurtleSmartItemModel;
 import dan200.computercraft.shared.proxy.CCTurtleProxyCommon;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
 import dan200.computercraft.shared.turtle.items.ItemTurtle;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.ModelResourceLocation;
-import net.minecraft.resources.IReloadableResourceManager;
-import net.minecraft.resources.IResourceManager;
-import net.minecraftforge.client.event.ModelBakeEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
-import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
+import net.fabricmc.fabric.api.client.render.ColorProviderRegistry;
+import net.fabricmc.fabric.client.render.BlockEntityRendererRegistry;
 
 public class CCTurtleProxyClient extends CCTurtleProxyCommon
 {
     @Override
-    @SubscribeEvent
-    public void setup( FMLCommonSetupEvent event )
+    public void setup()
     {
-        super.setup( event );
-        MinecraftForge.EVENT_BUS.register( new ForgeHandlers() );
-    }
+        super.setup();
 
-    @SubscribeEvent
-    public void setupClient( InterModProcessEvent event ) // TODO: Move this somewhere more sane if Forge fixes things.
-    {
         // Setup turtle colours
-        Minecraft.getInstance().getItemColors().register( ( stack, tintIndex ) -> {
+        ColorProviderRegistry.ITEM.register( ( stack, tintIndex ) -> {
             if( tintIndex == 0 )
             {
                 ItemTurtle turtle = (ItemTurtle) stack.getItem();
@@ -49,9 +34,10 @@ public class CCTurtleProxyClient extends CCTurtleProxyCommon
         }, ComputerCraft.Blocks.turtleNormal, ComputerCraft.Blocks.turtleAdvanced );
 
         // Setup renderers
-        ClientRegistry.bindTileEntitySpecialRenderer( TileTurtle.class, new TileEntityTurtleRenderer() );
+        BlockEntityRendererRegistry.INSTANCE.register( TileTurtle.class, new TileEntityTurtleRenderer() );
     }
 
+    /*
     public static class ForgeHandlers
     {
         private final TurtleSmartItemModel m_turtleSmartItemModel = new TurtleSmartItemModel();
@@ -71,5 +57,5 @@ public class CCTurtleProxyClient extends CCTurtleProxyCommon
             event.getModelRegistry().put( new ModelResourceLocation( "computercraft:turtle_dynamic", "inventory" ), m_turtleSmartItemModel );
         }
     }
-
+    */
 }

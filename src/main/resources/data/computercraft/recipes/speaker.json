@@ -6,9 +6,9 @@
         "#R#"
     ],
     "key": {
-        "#": { "tag": "forge:stone" },
-        "R": { "tag": "forge:dusts/redstone" },
-        "N": { "item": "minecraft:note_block" }
+        "#": { "item": "minecraft:stone" },
+        "R": { "item": "minecraft:redstone" },
+        "N": { "item": "minecraft:noteblock" }
     },
     "result": { "item": "computercraft:speaker" }
 }

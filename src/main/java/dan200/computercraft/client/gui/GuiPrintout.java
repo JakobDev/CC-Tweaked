@@ -6,16 +6,17 @@
 
 package dan200.computercraft.client.gui;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.core.terminal.TextBuffer;
 import dan200.computercraft.shared.common.ContainerHeldItem;
 import dan200.computercraft.shared.media.items.ItemPrintout;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.gui.ContainerScreen;
+import net.minecraft.entity.player.PlayerInventory;
 import org.lwjgl.glfw.GLFW;
 
 import static dan200.computercraft.client.render.PrintoutRenderer.*;
 
-public class GuiPrintout extends GuiContainer
+public class GuiPrintout extends ContainerScreen<ContainerHeldItem>
 {
     private final boolean m_book;
     private final int m_pages;
@@ -23,9 +24,9 @@ public class GuiPrintout extends GuiContainer
     private final TextBuffer[] m_colours;
     private int m_page;
 
-    public GuiPrintout( ContainerHeldItem container )
+    public GuiPrintout( ContainerHeldItem container, PlayerInventory player )
     {
-        super( container );
+        super( container, player, container.getStack().getDisplayName() );
 
         String[] text = ItemPrintout.getText( container.getStack() );
         m_text = new TextBuffer[text.length];
@@ -82,13 +83,12 @@ public class GuiPrintout extends GuiContainer
     }
 
     @Override
-    public void render( int mouseX, int mouseY, float v )
+    public void draw( int mouseX, int mouseY, float v )
     {
-        // TODO: Again, is this the correct layer?
         // Draw background
-        zLevel = zLevel - 1;
-        drawDefaultBackground();
-        zLevel = zLevel + 1;
+        zOffset = zOffset - 1;
+        drawBackground();
+        zOffset = zOffset + 1;
 
         // Draw the printout
         GlStateManager.color4f( 1.0f, 1.0f, 1.0f, 1.0f );
@@ -96,12 +96,12 @@ public class GuiPrintout extends GuiContainer
         int startY = (height - Y_SIZE) / 2;
         int startX = (width - X_SIZE) / 2;
 
-        drawBorder( startX, startY, zLevel, m_page, m_pages, m_book );
+        drawBorder( startX, startY, zOffset, m_page, m_pages, m_book );
         drawText( startX + X_TEXT_MARGIN, startY + Y_TEXT_MARGIN, ItemPrintout.LINES_PER_PAGE * m_page, m_text, m_colours );
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer( float v, int i, int i1 )
+    protected void drawBackground( float v, int i, int i1 )
     {
     }
 }

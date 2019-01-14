@@ -6,11 +6,11 @@
 
 package dan200.computercraft.shared.util;
 
-import net.minecraft.item.EnumDyeColor;
+import net.minecraft.item.DyeItem;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemDye;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.DyeColor;
 
 import javax.annotation.Nonnull;
 
@@ -18,26 +18,26 @@ import static dan200.computercraft.shared.util.NBTUtil.TAG_ANY_NUMERIC;
 
 public final class ColourUtils
 {
-    public static EnumDyeColor getStackColour( ItemStack stack )
+    public static DyeColor getStackColour( ItemStack stack )
     {
         Item item = stack.getItem();
-        if( item instanceof ItemDye ) return ((ItemDye) item).getDyeColor();
+        if( item instanceof DyeItem ) return ((DyeItem) item).getColor();
 
         // TODO: Ore dictionary! (well, tags)
         return null;
     }
 
-    public static int getHexColour( @Nonnull NBTTagCompound tag )
+    public static int getHexColour( @Nonnull CompoundTag tag )
     {
-        if( tag.contains( "colourIndex", TAG_ANY_NUMERIC ) )
+        if( tag.containsKey( "colourIndex", TAG_ANY_NUMERIC ) )
         {
             return Colour.VALUES[tag.getInt( "colourIndex" ) & 0xF].getHex();
         }
-        else if( tag.contains( "colour", TAG_ANY_NUMERIC ) )
+        else if( tag.containsKey( "colour", TAG_ANY_NUMERIC ) )
         {
             return tag.getInt( "colour" );
         }
-        else if( tag.contains( "color", TAG_ANY_NUMERIC ) )
+        else if( tag.containsKey( "color", TAG_ANY_NUMERIC ) )
         {
             return tag.getInt( "color" );
         }
@@ -47,9 +47,9 @@ public final class ColourUtils
         }
     }
 
-    public static Colour getColour( @Nonnull NBTTagCompound tag )
+    public static Colour getColour( @Nonnull CompoundTag tag )
     {
-        if( tag.contains( "colourIndex", TAG_ANY_NUMERIC ) )
+        if( tag.containsKey( "colourIndex", TAG_ANY_NUMERIC ) )
         {
             return Colour.fromInt( tag.getInt( "colourIndex" ) & 0xF );
         }
