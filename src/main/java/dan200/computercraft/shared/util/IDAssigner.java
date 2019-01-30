@@ -7,6 +7,7 @@
 package dan200.computercraft.shared.util;
 
 import dan200.computercraft.ComputerCraft;
+import net.minecraftforge.common.DimensionManager;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -17,14 +18,19 @@ public class IDAssigner
     {
     }
 
+    public static File getWorldDir()
+    {
+        return DimensionManager.getCurrentSaveRootDirectory();
+    }
+
     public static int getNextIDFromDirectory( String path )
     {
-        return getNextIDFromDirectory( new File( ComputerCraft.getWorldDir(), path ) );
+        return getNextIDFromDirectory( new File( getWorldDir(), path ) );
     }
 
     public static int getNextIDFromFile( String path )
     {
-        return getNextIDFromFile( new File( ComputerCraft.getWorldDir(), path ) );
+        return getNextIDFromFile( new File( getWorldDir(), path ) );
     }
 
     public static int getNextIDFromDirectory( File dir )

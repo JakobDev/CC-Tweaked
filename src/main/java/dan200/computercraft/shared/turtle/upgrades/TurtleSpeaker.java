@@ -7,12 +7,11 @@
 
 package dan200.computercraft.shared.turtle.upgrades;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.api.turtle.TurtleUpgradeType;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.PeripheralItemFactory;
 import dan200.computercraft.shared.peripheral.speaker.SpeakerPeripheral;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.IBakedModel;
@@ -22,8 +21,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
@@ -61,18 +60,15 @@ public class TurtleSpeaker extends AbstractTurtleUpgrade
         }
     }
 
-    @SideOnly( Side.CLIENT )
+    @OnlyIn( Dist.CLIENT )
     private ModelResourceLocation m_leftModel;
 
-    @SideOnly( Side.CLIENT )
+    @OnlyIn( Dist.CLIENT )
     private ModelResourceLocation m_rightModel;
 
-    public TurtleSpeaker( ResourceLocation id, int legacyId )
+    public TurtleSpeaker( ResourceLocation id )
     {
-        super(
-            id, legacyId, TurtleUpgradeType.Peripheral,
-            PeripheralItemFactory.create( PeripheralType.Speaker, null, 1 )
-        );
+        super( id, TurtleUpgradeType.Peripheral, ComputerCraft.Blocks.speaker );
     }
 
     @Override
@@ -81,7 +77,7 @@ public class TurtleSpeaker extends AbstractTurtleUpgrade
         return new TurtleSpeaker.Peripheral( turtle );
     }
 
-    @SideOnly( Side.CLIENT )
+    @OnlyIn( Dist.CLIENT )
     private void loadModelLocations()
     {
         if( m_leftModel == null )
@@ -93,11 +89,11 @@ public class TurtleSpeaker extends AbstractTurtleUpgrade
 
     @Nonnull
     @Override
-    @SideOnly( Side.CLIENT )
+    @OnlyIn( Dist.CLIENT )
     public Pair<IBakedModel, Matrix4f> getModel( ITurtleAccess turtle, @Nonnull TurtleSide side )
     {
         loadModelLocations();
-        ModelManager modelManager = Minecraft.getMinecraft().getRenderItem().getItemModelMesher().getModelManager();
+        ModelManager modelManager = Minecraft.getInstance().getItemRenderer().getItemModelMesher().getModelManager();
 
         if( side == TurtleSide.Left )
         {

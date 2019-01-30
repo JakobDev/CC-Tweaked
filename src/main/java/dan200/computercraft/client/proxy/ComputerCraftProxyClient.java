@@ -7,51 +7,49 @@
 package dan200.computercraft.client.proxy;
 
 import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.client.gui.*;
 import dan200.computercraft.client.render.TileEntityCableRenderer;
 import dan200.computercraft.client.render.TileEntityMonitorRenderer;
-import dan200.computercraft.shared.command.CommandCopy;
-import dan200.computercraft.shared.media.items.ItemDiskLegacy;
+import dan200.computercraft.shared.common.IColouredItem;
+import dan200.computercraft.shared.computer.blocks.TileComputer;
+import dan200.computercraft.shared.computer.core.ClientComputer;
+import dan200.computercraft.shared.computer.inventory.ContainerViewComputer;
+import dan200.computercraft.shared.network.container.*;
 import dan200.computercraft.shared.peripheral.modem.wired.TileCable;
 import dan200.computercraft.shared.peripheral.monitor.ClientMonitor;
 import dan200.computercraft.shared.peripheral.monitor.TileMonitor;
+import dan200.computercraft.shared.pocket.items.ItemPocketComputer;
 import dan200.computercraft.shared.proxy.ComputerCraftProxyCommon;
+import dan200.computercraft.shared.turtle.blocks.TileTurtle;
+import dan200.computercraft.shared.turtle.inventory.ContainerTurtle;
 import dan200.computercraft.shared.util.Colour;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.color.IItemColor;
-import net.minecraft.item.ItemStack;
-import net.minecraftforge.client.ClientCommandHandler;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.event.world.WorldEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
-
-import javax.annotation.Nonnull;
+import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
 
 public class ComputerCraftProxyClient extends ComputerCraftProxyCommon
 {
-    @Override
-    public void preInit()
+    @SubscribeEvent
+    public void setupClient( InterModProcessEvent event ) // TODO: Move this somewhere more sane if Forge fixes things.
     {
-        super.preInit();
-
         // Register any client-specific commands
-        ClientCommandHandler.instance.registerCommand( CommandCopy.INSTANCE );
-    }
+        // ClientCommandHandler.instance.registerCommand( CommandCopy.INSTANCE );
 
-    @Override
-    public void init()
-    {
-        super.init();
+        registerContainers();
 
-        Minecraft mc = Minecraft.getMinecraft();
+        Minecraft mc = Minecraft.getInstance();
 
         // Setup
-        mc.getItemColors().registerItemColorHandler( new DiskColorHandler( ComputerCraft.Items.disk ), ComputerCraft.Items.disk );
-        mc.getItemColors().registerItemColorHandler( new DiskColorHandler( ComputerCraft.Items.diskExpanded ), ComputerCraft.Items.diskExpanded );
+        mc.getItemColors().register(
+            ( stack, layer ) -> layer == 0 ? 0xFFFFFF : ComputerCraft.Items.disk.getColour( stack ),
+            ComputerCraft.Items.disk
+        );
 
-        mc.getItemColors().registerItemColorHandler( ( stack, layer ) -> {
+        mc.getItemColors().register( ( stack, layer ) -> {
             switch( layer )
             {
                 case 0:
@@ -60,50 +58,59 @@ public class ComputerCraftProxyClient extends ComputerCraftProxyCommon
                 case 1:
                 {
                     // Frame colour
-                    int colour = ComputerCraft.Items.pocketComputer.getColour( stack );
+                    int colour = IColouredItem.getColourBasic( stack );
                     return colour == -1 ? 0xFFFFFF : colour;
                 }
                 case 2:
                 {
                     // Light colour
-                    int colour = ComputerCraft.Items.pocketComputer.getLightState( stack );
+                    int colour = ItemPocketComputer.getLightState( stack );
                     return colour == -1 ? Colour.Black.getHex() : colour;
                 }
             }
-        }, ComputerCraft.Items.pocketComputer );
+        }, ComputerCraft.Items.pocketComputerNormal, ComputerCraft.Items.pocketComputerAdvanced );
 
         // Setup renderers
         ClientRegistry.bindTileEntitySpecialRenderer( TileMonitor.class, new TileEntityMonitorRenderer() );
         ClientRegistry.bindTileEntitySpecialRenderer( TileCable.class, new TileEntityCableRenderer() );
     }
 
-    @Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID, value = Side.CLIENT )
+    private void registerContainers()
+    {
+        ContainerType.registerGui( BlockEntityContainerType::computer, ( packet, player ) ->
+            new GuiComputer( (TileComputer) packet.getTileEntity( player ) ) );
+        ContainerType.registerGui( BlockEntityContainerType::diskDrive, GuiDiskDrive::new );
+        ContainerType.registerGui( BlockEntityContainerType::printer, GuiPrinter::new );
+        ContainerType.registerGui( BlockEntityContainerType::turtle, ( packet, player ) -> {
+            TileTurtle turtle = (TileTurtle) packet.getTileEntity( player );
+            return new GuiTurtle( turtle, new ContainerTurtle( player.inventory, turtle.getAccess(), turtle.getClientComputer() ) );
+        } );
+
+        ContainerType.registerGui( PocketComputerContainerType::new, GuiPocketComputer::new );
+        ContainerType.registerGui( PrintoutContainerType::new, GuiPrintout::new );
+        ContainerType.registerGui( ViewComputerContainerType::new, ( packet, player ) -> {
+            ClientComputer computer = ComputerCraft.clientComputerRegistry.get( packet.instanceId );
+            if( computer == null )
+            {
+                ComputerCraft.clientComputerRegistry.add( packet.instanceId, computer = new ClientComputer( packet.instanceId ) );
+            }
+
+            ContainerViewComputer container = new ContainerViewComputer( computer );
+            return new GuiComputer( container, packet.family, computer, packet.width, packet.height );
+        } );
+    }
+
+
+    @Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID, value = Dist.CLIENT )
     public static class ForgeHandlers
     {
         @SubscribeEvent
         public static void onWorldUnload( WorldEvent.Unload event )
         {
-            if( event.getWorld().isRemote )
+            if( event.getWorld().isRemote() )
             {
                 ClientMonitor.destroyAll();
             }
-        }
-    }
-
-    @SideOnly( Side.CLIENT )
-    private static class DiskColorHandler implements IItemColor
-    {
-        private final ItemDiskLegacy disk;
-
-        private DiskColorHandler( ItemDiskLegacy disk )
-        {
-            this.disk = disk;
-        }
-
-        @Override
-        public int colorMultiplier( @Nonnull ItemStack stack, int layer )
-        {
-            return layer == 0 ? 0xFFFFFF : disk.getColour( stack );
         }
     }
 }

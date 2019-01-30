@@ -83,6 +83,7 @@ public class PocketAPI implements ILuaAPI
                         ItemStack stack = previousUpgrade.getCraftingItem();
                         if( !stack.isEmpty() )
                         {
+                            // TODO: Only the main slots!
                             stack = InventoryUtil.storeItems( stack, new PlayerMainInvWrapper( inventory ), inventory.currentItem );
                             if( !stack.isEmpty() )
                             {
@@ -118,6 +119,7 @@ public class PocketAPI implements ILuaAPI
                     ItemStack stack = previousUpgrade.getCraftingItem();
                     if( !stack.isEmpty() )
                     {
+                        // TODO: Only the main slots!
                         stack = InventoryUtil.storeItems( stack, new PlayerMainInvWrapper( inventory ), inventory.currentItem );
                         if( stack.isEmpty() )
                         {

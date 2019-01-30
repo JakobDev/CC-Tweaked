@@ -10,30 +10,30 @@ import com.google.common.base.Objects;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.turtle.items.ItemTurtleBase;
+import dan200.computercraft.shared.turtle.items.ItemTurtle;
 import dan200.computercraft.shared.util.Holiday;
 import dan200.computercraft.shared.util.HolidayUtil;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.*;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.IResourceManager;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.item.ItemStack;
+import net.minecraft.resources.IResourceManager;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
-import net.minecraftforge.client.resource.IResourceType;
-import net.minecraftforge.client.resource.ISelectiveResourceReloadListener;
-import net.minecraftforge.client.resource.VanillaResourceType;
+import net.minecraftforge.resource.IResourceType;
+import net.minecraftforge.resource.ISelectiveResourceReloadListener;
+import net.minecraftforge.resource.VanillaResourceType;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.vecmath.Matrix4f;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
 import java.util.function.Predicate;
 
 public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceReloadListener
@@ -112,14 +112,14 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
     {
         m_cachedModels = new HashMap<>();
         m_defaultCombination = new TurtleModelCombination( ComputerFamily.Normal, false, null, null, null, false, false );
-        m_overrides = new ItemOverrideList( new ArrayList<>() )
+        m_overrides = new ItemOverrideList()
         {
             @Nonnull
             @Override
-            public IBakedModel handleItemState( @Nonnull IBakedModel originalModel, @Nonnull ItemStack stack, @Nullable World world, @Nullable EntityLivingBase entity )
+            public IBakedModel getModelWithOverrides( @Nonnull IBakedModel originalModel, @Nonnull ItemStack stack, @Nullable World world, @Nullable EntityLivingBase entity )
             {
-                ItemTurtleBase turtle = (ItemTurtleBase) stack.getItem();
-                ComputerFamily family = turtle.getFamily( stack );
+                ItemTurtle turtle = (ItemTurtle) stack.getItem();
+                ComputerFamily family = turtle.getFamily();
                 int colour = turtle.getColour( stack );
                 ITurtleUpgrade leftUpgrade = turtle.getUpgrade( stack, TurtleSide.Left );
                 ITurtleUpgrade rightUpgrade = turtle.getUpgrade( stack, TurtleSide.Right );
@@ -157,10 +157,10 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
 
     private IBakedModel buildModel( TurtleModelCombination combo )
     {
-        Minecraft mc = Minecraft.getMinecraft();
-        ModelManager modelManager = mc.getRenderItem().getItemModelMesher().getModelManager();
+        Minecraft mc = Minecraft.getInstance();
+        ModelManager modelManager = mc.getItemRenderer().getItemModelMesher().getModelManager();
         ModelResourceLocation baseModelLocation = TileEntityTurtleRenderer.getTurtleModel( combo.m_family, combo.m_colour );
-        ModelResourceLocation overlayModelLocation = TileEntityTurtleRenderer.getTurtleOverlayModel( combo.m_family, combo.m_overlay, combo.m_christmas );
+        ModelResourceLocation overlayModelLocation = TileEntityTurtleRenderer.getTurtleOverlayModel( combo.m_overlay, combo.m_christmas );
         IBakedModel baseModel = modelManager.getModel( baseModelLocation );
         IBakedModel overlayModel = (overlayModelLocation != null) ? modelManager.getModel( overlayModelLocation ) : null;
         Matrix4f transform = combo.m_flip ? s_flip : s_identity;
@@ -188,7 +188,7 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
 
     @Nonnull
     @Override
-    public List<BakedQuad> getQuads( IBlockState state, EnumFacing facing, long rand )
+    public List<BakedQuad> getQuads( IBlockState state, EnumFacing facing, @Nonnull Random rand )
     {
         return getDefaultModel().getQuads( state, facing, rand );
     }

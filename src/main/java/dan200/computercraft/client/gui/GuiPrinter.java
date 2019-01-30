@@ -25,34 +25,31 @@ public class GuiPrinter extends GuiContainer
     }
 
     @Override
-    protected void drawGuiContainerForegroundLayer( int par1, int par2 )
+    protected void drawGuiContainerForegroundLayer( int mouseX, int mouseY )
     {
-        String title = m_container.getPrinter().getDisplayName().getUnformattedText();
-        fontRenderer.drawString( title, (xSize - fontRenderer.getStringWidth( title )) / 2, 6, 0x404040 );
+        String title = m_container.getPrinter().getDisplayName().getString();
+        fontRenderer.drawString( title, (xSize - fontRenderer.getStringWidth( title )) / 2.0f, 6, 0x404040 );
         fontRenderer.drawString( I18n.format( "container.inventory" ), 8, (ySize - 96) + 2, 0x404040 );
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer( float f, int i, int j )
+    protected void drawGuiContainerBackgroundLayer( float partialTicks, int mouseX, int mouseY )
     {
-        GlStateManager.color( 1.0F, 1.0F, 1.0F, 1.0F );
-        this.mc.getTextureManager().bindTexture( BACKGROUND );
+        GlStateManager.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
+        mc.getTextureManager().bindTexture( BACKGROUND );
         int startX = (width - xSize) / 2;
         int startY = (height - ySize) / 2;
         drawTexturedModalRect( startX, startY, 0, 0, xSize, ySize );
 
         boolean printing = m_container.isPrinting();
-        if( printing )
-        {
-            drawTexturedModalRect( startX + 34, startY + 21, 176, 0, 25, 45 );
-        }
+        if( printing ) drawTexturedModalRect( startX + 34, startY + 21, 176, 0, 25, 45 );
     }
 
     @Override
-    public void drawScreen( int mouseX, int mouseY, float partialTicks )
+    public void render( int mouseX, int mouseY, float partialTicks )
     {
         drawDefaultBackground();
-        super.drawScreen( mouseX, mouseY, partialTicks );
+        super.render( mouseX, mouseY, partialTicks );
         renderHoveredToolTip( mouseX, mouseY );
     }
 }

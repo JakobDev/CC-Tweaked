@@ -16,10 +16,7 @@ import net.minecraft.util.EnumFacing;
 
 import javax.annotation.Nonnull;
 import javax.vecmath.Matrix4f;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class TurtleMultiModel implements IBakedModel
 {
@@ -49,7 +46,7 @@ public class TurtleMultiModel implements IBakedModel
 
     @Nonnull
     @Override
-    public List<BakedQuad> getQuads( IBlockState state, EnumFacing side, long rand )
+    public List<BakedQuad> getQuads( IBlockState state, EnumFacing side, @Nonnull Random rand )
     {
         if( side != null )
         {
@@ -63,7 +60,7 @@ public class TurtleMultiModel implements IBakedModel
         }
     }
 
-    private List<BakedQuad> buildQuads( IBlockState state, EnumFacing side, long rand )
+    private List<BakedQuad> buildQuads( IBlockState state, EnumFacing side, Random rand )
     {
         ArrayList<BakedQuad> quads = new ArrayList<>();
         ModelTransformer.transformQuadsTo( quads, m_baseModel.getQuads( state, side, rand ), m_generalTransform );
@@ -136,6 +133,6 @@ public class TurtleMultiModel implements IBakedModel
     @Override
     public ItemOverrideList getOverrides()
     {
-        return ItemOverrideList.NONE;
+        return ItemOverrideList.EMPTY;
     }
 }

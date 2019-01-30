@@ -30,7 +30,7 @@ public class TurtleItemFactory
             return create( -1, null, turtle.getColour(), turtle.getFamily(), leftUpgrade, rightUpgrade, 0, turtle.getOverlay() );
         }
 
-        int id = turtle.getComputerID();
+        int id = turtle.getComputerId();
         int fuelLevel = turtle.getAccess().getFuelLevel();
         return create( id, label, turtle.getColour(), turtle.getFamily(), leftUpgrade, rightUpgrade, fuelLevel, turtle.getOverlay() );
     }
@@ -41,17 +41,9 @@ public class TurtleItemFactory
         switch( family )
         {
             case Normal:
-            {
-                ItemTurtleBase legacy = ComputerCraft.Items.turtle;
-                ItemTurtleBase normal = ComputerCraft.Items.turtleExpanded;
-                ItemStack legacyStack = legacy.create( id, label, colour, leftUpgrade, rightUpgrade, fuelLevel, overlay );
-                return legacyStack != null ? legacyStack : normal.create( id, label, colour, leftUpgrade, rightUpgrade, fuelLevel, overlay );
-            }
+                return ComputerCraft.Items.turtleNormal.create( id, label, colour, leftUpgrade, rightUpgrade, fuelLevel, overlay );
             case Advanced:
-            {
-                ItemTurtleBase advanced = ComputerCraft.Items.turtleAdvanced;
-                return advanced.create( id, label, colour, leftUpgrade, rightUpgrade, fuelLevel, overlay );
-            }
+                return ComputerCraft.Items.turtleAdvanced.create( id, label, colour, leftUpgrade, rightUpgrade, fuelLevel, overlay );
             default:
                 return ItemStack.EMPTY;
         }

@@ -6,58 +6,40 @@
 
 package dan200.computercraft.shared.util;
 
+import net.minecraft.item.EnumDyeColor;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemDye;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraftforge.common.util.Constants;
-import net.minecraftforge.oredict.OreDictionary;
-import org.apache.commons.lang3.ArrayUtils;
 
 import javax.annotation.Nonnull;
 
+import static dan200.computercraft.shared.util.NBTUtil.TAG_ANY_NUMERIC;
+
 public final class ColourUtils
 {
-    private static final String[] DYES = new String[] {
-        "dyeBlack", "dyeRed", "dyeGreen", "dyeBrown",
-        "dyeBlue", "dyePurple", "dyeCyan", "dyeLightGray",
-        "dyeGray", "dyePink", "dyeLime", "dyeYellow",
-        "dyeLightBlue", "dyeMagenta", "dyeOrange", "dyeWhite"
-    };
-
-    private static int[] ids;
-
-    public static int getStackColour( ItemStack stack )
+    public static EnumDyeColor getStackColour( ItemStack stack )
     {
-        if( ids == null )
-        {
-            int ids[] = ColourUtils.ids = new int[DYES.length];
-            for( int i = 0; i < DYES.length; i++ )
-            {
-                ids[i] = OreDictionary.getOreID( DYES[i] );
-            }
-        }
+        Item item = stack.getItem();
+        if( item instanceof ItemDye ) return ((ItemDye) item).getDyeColor();
 
-        for( int id : OreDictionary.getOreIDs( stack ) )
-        {
-            int index = ArrayUtils.indexOf( ids, id );
-            if( index >= 0 ) return index;
-        }
-
-        return -1;
+        // TODO: Ore dictionary! (well, tags)
+        return null;
     }
 
     public static int getHexColour( @Nonnull NBTTagCompound tag )
     {
-        if( tag.hasKey( "colourIndex", Constants.NBT.TAG_ANY_NUMERIC ) )
+        if( tag.contains( "colourIndex", TAG_ANY_NUMERIC ) )
         {
-            return Colour.VALUES[tag.getInteger( "colourIndex" ) & 0xF].getHex();
+            return Colour.VALUES[tag.getInt( "colourIndex" ) & 0xF].getHex();
         }
-        else if( tag.hasKey( "colour", Constants.NBT.TAG_ANY_NUMERIC ) )
+        else if( tag.contains( "colour", TAG_ANY_NUMERIC ) )
         {
-            return tag.getInteger( "colour" );
+            return tag.getInt( "colour" );
         }
-        else if( tag.hasKey( "color", Constants.NBT.TAG_ANY_NUMERIC ) )
+        else if( tag.contains( "color", TAG_ANY_NUMERIC ) )
         {
-            return tag.getInteger( "color" );
+            return tag.getInt( "color" );
         }
         else
         {
@@ -67,14 +49,13 @@ public final class ColourUtils
 
     public static Colour getColour( @Nonnull NBTTagCompound tag )
     {
-        if( tag.hasKey( "colourIndex", Constants.NBT.TAG_ANY_NUMERIC ) )
+        if( tag.contains( "colourIndex", TAG_ANY_NUMERIC ) )
         {
-            return Colour.fromInt( tag.getInteger( "colourIndex" ) & 0xF );
+            return Colour.fromInt( tag.getInt( "colourIndex" ) & 0xF );
         }
         else
         {
             return null;
         }
     }
-
 }

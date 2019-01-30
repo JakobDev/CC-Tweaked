@@ -7,20 +7,16 @@
 package dan200.computercraft.shared.computer.blocks;
 
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.computer.core.IComputer;
 
 public interface IComputerTile
 {
-    int getComputerID();
+    int getComputerId();
 
-    void setComputerID( int id );
+    void setComputerId( int id );
 
     String getLabel();
 
     void setLabel( String label );
 
     ComputerFamily getFamily();
-
-    @Deprecated
-    IComputer getComputer();
 }

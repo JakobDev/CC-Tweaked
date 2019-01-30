@@ -28,7 +28,7 @@ public class ClientTableFormatter implements TableFormatter
 
     private FontRenderer renderer()
     {
-        return Minecraft.getMinecraft().fontRenderer;
+        return Minecraft.getInstance().fontRenderer;
     }
 
     @Override
@@ -40,7 +40,7 @@ public class ClientTableFormatter implements TableFormatter
 
         FontRenderer renderer = renderer();
 
-        float spaceWidth = renderer.getCharWidth( ' ' );
+        float spaceWidth = renderer.getStringWidth( " " );
         int spaces = MathHelper.floor( extraWidth / spaceWidth );
         int extra = extraWidth - (int) (spaces * spaceWidth);
 
@@ -62,13 +62,13 @@ public class ClientTableFormatter implements TableFormatter
     @Override
     public void writeLine( int id, ITextComponent component )
     {
-        Minecraft.getMinecraft().ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion( component, id );
+        Minecraft.getInstance().ingameGUI.getChatGUI().printChatMessageWithOptionalDeletion( component, id );
     }
 
     @Override
     public int display( TableBuilder table )
     {
-        GuiNewChat chat = Minecraft.getMinecraft().ingameGUI.getChatGUI();
+        GuiNewChat chat = Minecraft.getInstance().ingameGUI.getChatGUI();
 
         int lastHeight = lastHeights.get( table.getId() );
 

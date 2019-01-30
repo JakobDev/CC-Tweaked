@@ -7,32 +7,22 @@
 package dan200.computercraft.client;
 
 import dan200.computercraft.ComputerCraft;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.ItemMeshDefinition;
-import net.minecraft.client.renderer.block.model.IBakedModel;
-import net.minecraft.client.renderer.block.model.ModelBakery;
-import net.minecraft.client.renderer.block.model.ModelResourceLocation;
+import net.minecraft.client.renderer.block.model.IUnbakedModel;
 import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ModelBakeEvent;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.client.event.TextureStitchEvent;
-import net.minecraftforge.client.model.IModel;
-import net.minecraftforge.client.model.ModelLoader;
 import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
-
-import javax.annotation.Nonnull;
 
 /**
  * Registers textures and models for items.
  */
-@Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID, value = Side.CLIENT )
+@Mod.EventBusSubscriber( modid = ComputerCraft.MOD_ID, value = Dist.CLIENT )
 public class ClientRegistry
 {
     private static final String[] TURTLE_UPGRADES = {
@@ -53,35 +43,8 @@ public class ClientRegistry
     @SubscribeEvent
     public static void registerModels( ModelRegistryEvent event )
     {
-        // Register item models
-        registerUniversalItemModel( ComputerCraft.Items.computer, "computer" );
-        registerItemModel( ComputerCraft.Items.commandComputer, 0, "command_computer" );
-
-        registerItemModel( ComputerCraft.Items.pocketComputer, 0, "pocket_computer" );
-        registerItemModel( ComputerCraft.Items.pocketComputer, 1, "advanced_pocket_computer" );
-
-        registerItemModel( ComputerCraft.Items.peripheral, 0, "peripheral" );
-        registerItemModel( ComputerCraft.Items.peripheral, 1, "wireless_modem" );
-        registerItemModel( ComputerCraft.Items.peripheral, 2, "monitor" );
-        registerItemModel( ComputerCraft.Items.peripheral, 3, "printer" );
-        registerItemModel( ComputerCraft.Items.peripheral, 4, "advanced_monitor" );
-        registerItemModel( ComputerCraft.Items.cable, 0, "cable" );
-        registerItemModel( ComputerCraft.Items.cable, 1, "wired_modem" );
-        registerItemModel( ComputerCraft.Items.advancedModem, 0, "advanced_modem" );
-        registerItemModel( ComputerCraft.Items.peripheral, 5, "speaker" );
-        registerItemModel( ComputerCraft.Items.wiredModemFull, 0, "wired_modem_full" );
-
-        registerUniversalItemModel( ComputerCraft.Items.disk, "disk" );
-        registerItemModel( ComputerCraft.Items.diskExpanded, 0, "disk_expanded" );
-        registerItemModel( ComputerCraft.Items.treasureDisk, 0, "treasure_disk" );
-
-        registerItemModel( ComputerCraft.Items.printout, 0, "printout" );
-        registerItemModel( ComputerCraft.Items.printout, 1, "pages" );
-        registerItemModel( ComputerCraft.Items.printout, 2, "book" );
-
         String[] extraTurtleModels = new String[] { "turtle", "turtle_advanced", "turtle_white", "turtle_elf_overlay" };
-        registerUniversalItemModel( ComputerCraft.Items.turtle, "turtle_dynamic", extraTurtleModels );
-        registerUniversalItemModel( ComputerCraft.Items.turtleExpanded, "turtle_dynamic", extraTurtleModels );
+        registerUniversalItemModel( ComputerCraft.Items.turtleNormal, "turtle_dynamic", extraTurtleModels );
         registerUniversalItemModel( ComputerCraft.Items.turtleAdvanced, "turtle_dynamic", extraTurtleModels );
     }
 
@@ -92,11 +55,13 @@ public class ClientRegistry
         TextureMap map = event.getMap();
         for( String upgrade : TURTLE_UPGRADES )
         {
-            IModel model = ModelLoaderRegistry.getModelOrMissing( new ResourceLocation( "computercraft", "block/" + upgrade ) );
+            IUnbakedModel model = ModelLoaderRegistry.getModelOrMissing( new ResourceLocation( "computercraft", "block/" + upgrade ) );
+            /*
             for( ResourceLocation texture : model.getTextures() )
             {
                 map.registerSprite( texture );
             }
+            */
         }
     }
 
@@ -110,16 +75,9 @@ public class ClientRegistry
         }
     }
 
-    private static void registerItemModel( Item item, int damage, String name )
-    {
-        ResourceLocation location = new ResourceLocation( ComputerCraft.MOD_ID, name );
-        final ModelResourceLocation res = new ModelResourceLocation( location, "inventory" );
-        ModelBakery.registerItemVariants( item, location );
-        ModelLoader.setCustomModelResourceLocation( item, damage, res );
-    }
-
     private static void registerUniversalItemModel( Item item, String mainModel, String... extraModels )
     {
+
         ResourceLocation mainLocation = new ResourceLocation( ComputerCraft.MOD_ID, mainModel );
 
         ResourceLocation[] modelLocations = new ResourceLocation[extraModels.length + 1];
@@ -129,6 +87,7 @@ public class ClientRegistry
             modelLocations[i + 1] = new ResourceLocation( ComputerCraft.MOD_ID, extraModels[i] );
         }
 
+        /*
         ModelBakery.registerItemVariants( item, modelLocations );
 
         final ModelResourceLocation mainModelLocation = new ModelResourceLocation( mainLocation, "inventory" );
@@ -141,16 +100,19 @@ public class ClientRegistry
                 return mainModelLocation;
             }
         } );
+        */
     }
 
     private static void loadBlockModel( ModelBakeEvent event, String name )
     {
+        /*
         IModel model = ModelLoaderRegistry.getModelOrMissing( new ResourceLocation( ComputerCraft.MOD_ID, "block/" + name ) );
         IBakedModel bakedModel = model.bake(
             model.getDefaultState(), DefaultVertexFormats.ITEM,
-            location -> Minecraft.getMinecraft().getTextureMapBlocks().getAtlasSprite( location.toString() )
+            location -> Minecraft.getInstance().getTextureMap().getAtlasSprite( location.toString() )
         );
 
-        event.getModelRegistry().putObject( new ModelResourceLocation( ComputerCraft.MOD_ID + ":" + name, "inventory" ), bakedModel );
+        event.getModelRegistry().put( new ModelResourceLocation( ComputerCraft.MOD_ID + ":" + name, "inventory" ), bakedModel );
+        */
     }
 }

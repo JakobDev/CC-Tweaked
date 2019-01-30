@@ -11,41 +11,42 @@ import dan200.computercraft.client.render.TileEntityTurtleRenderer;
 import dan200.computercraft.client.render.TurtleSmartItemModel;
 import dan200.computercraft.shared.proxy.CCTurtleProxyCommon;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
-import dan200.computercraft.shared.turtle.items.ItemTurtleBase;
+import dan200.computercraft.shared.turtle.items.ItemTurtle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
-import net.minecraft.client.resources.IReloadableResourceManager;
-import net.minecraft.client.resources.IResourceManager;
+import net.minecraft.resources.IReloadableResourceManager;
+import net.minecraft.resources.IResourceManager;
 import net.minecraftforge.client.event.ModelBakeEvent;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.InterModProcessEvent;
 
 public class CCTurtleProxyClient extends CCTurtleProxyCommon
 {
     @Override
-    public void preInit()
+    @SubscribeEvent
+    public void setup( FMLCommonSetupEvent event )
     {
-        super.preInit();
+        super.setup( event );
         MinecraftForge.EVENT_BUS.register( new ForgeHandlers() );
     }
 
-    @Override
-    public void init()
+    @SubscribeEvent
+    public void setupClient( InterModProcessEvent event ) // TODO: Move this somewhere more sane if Forge fixes things.
     {
-        super.init();
-
         // Setup turtle colours
-        Minecraft.getMinecraft().getItemColors().registerItemColorHandler( ( stack, tintIndex ) -> {
+        Minecraft.getInstance().getItemColors().register( ( stack, tintIndex ) -> {
             if( tintIndex == 0 )
             {
-                ItemTurtleBase turtle = (ItemTurtleBase) stack.getItem();
+                ItemTurtle turtle = (ItemTurtle) stack.getItem();
                 int colour = turtle.getColour( stack );
                 if( colour != -1 ) return colour;
             }
 
             return 0xFFFFFF;
-        }, ComputerCraft.Blocks.turtle, ComputerCraft.Blocks.turtleExpanded, ComputerCraft.Blocks.turtleAdvanced );
+        }, ComputerCraft.Blocks.turtleNormal, ComputerCraft.Blocks.turtleAdvanced );
 
         // Setup renderers
         ClientRegistry.bindTileEntitySpecialRenderer( TileTurtle.class, new TileEntityTurtleRenderer() );
@@ -57,17 +58,17 @@ public class CCTurtleProxyClient extends CCTurtleProxyCommon
 
         ForgeHandlers()
         {
-            IResourceManager resourceManager = Minecraft.getMinecraft().getResourceManager();
+            IResourceManager resourceManager = Minecraft.getInstance().getResourceManager();
             if( resourceManager instanceof IReloadableResourceManager )
             {
-                ((IReloadableResourceManager) resourceManager).registerReloadListener( m_turtleSmartItemModel );
+                ((IReloadableResourceManager) resourceManager).addReloadListener( m_turtleSmartItemModel );
             }
         }
 
         @SubscribeEvent
         public void onModelBakeEvent( ModelBakeEvent event )
         {
-            event.getModelRegistry().putObject( new ModelResourceLocation( "computercraft:turtle_dynamic", "inventory" ), m_turtleSmartItemModel );
+            event.getModelRegistry().put( new ModelResourceLocation( "computercraft:turtle_dynamic", "inventory" ), m_turtleSmartItemModel );
         }
     }
 

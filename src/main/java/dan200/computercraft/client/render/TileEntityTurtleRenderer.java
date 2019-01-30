@@ -10,6 +10,7 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
+import dan200.computercraft.shared.util.DirectionUtil;
 import dan200.computercraft.shared.util.Holiday;
 import dan200.computercraft.shared.util.HolidayUtil;
 import net.minecraft.block.state.IBlockState;
@@ -22,9 +23,8 @@ import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.IBakedModel;
 import net.minecraft.client.renderer.block.model.ModelManager;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
-import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.renderer.tileentity.TileEntityRenderer;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.client.renderer.vertex.VertexFormat;
 import net.minecraft.util.EnumFacing;
@@ -39,18 +39,23 @@ import org.lwjgl.opengl.GL11;
 
 import javax.vecmath.Matrix4f;
 import java.util.List;
+import java.util.Random;
 
-public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurtle>
+public class TileEntityTurtleRenderer extends TileEntityRenderer<TileTurtle>
 {
-    private static final ModelResourceLocation NORMAL_TURTLE_MODEL = new ModelResourceLocation( "computercraft:turtle", "inventory" );
+    private static final ModelResourceLocation NORMAL_TURTLE_MODEL = new ModelResourceLocation( "computercraft:turtle_normal", "inventory" );
     private static final ModelResourceLocation ADVANCED_TURTLE_MODEL = new ModelResourceLocation( "computercraft:turtle_advanced", "inventory" );
-    private static final ModelResourceLocation COLOUR_TURTLE_MODEL = new ModelResourceLocation( "computercraft:turtle_white", "inventory" );
+    private static final ModelResourceLocation COLOUR_TURTLE_MODEL = new ModelResourceLocation( "computercraft:turtle_colour", "inventory" );
     private static final ModelResourceLocation ELF_OVERLAY_MODEL = new ModelResourceLocation( "computercraft:turtle_elf_overlay", "inventory" );
 
     @Override
-    public void render( TileTurtle tileEntity, double posX, double posY, double posZ, float f, int i, float f2 )
+    public void render( TileTurtle tileEntity, double posX, double posY, double posZ, float f, int i )
     {
-        if( tileEntity != null ) renderTurtleAt( tileEntity, posX, posY, posZ, f, i );
+        if( tileEntity != null )
+        {
+            // Render the turtle
+            renderTurtleAt( tileEntity, posX, posY, posZ, f, i );
+        }
     }
 
     public static ModelResourceLocation getTurtleModel( ComputerFamily family, boolean coloured )
@@ -65,7 +70,7 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
         }
     }
 
-    public static ModelResourceLocation getTurtleOverlayModel( ComputerFamily family, ResourceLocation overlay, boolean christmas )
+    public static ModelResourceLocation getTurtleOverlayModel( ResourceLocation overlay, boolean christmas )
     {
         if( overlay != null )
         {
@@ -83,16 +88,15 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
 
     private void renderTurtleAt( TileTurtle turtle, double posX, double posY, double posZ, float f, int i )
     {
-        IBlockState state = turtle.getWorld().getBlockState( turtle.getPos() );
         GlStateManager.pushMatrix();
         try
         {
+            IBlockState state = turtle.getBlockState();
+
             // Setup the transform
-            Vec3d offset;
-            float yaw;
-            offset = turtle.getRenderOffset( f );
-            yaw = turtle.getRenderYaw( f );
-            GlStateManager.translate( posX + offset.x, posY + offset.y, posZ + offset.z );
+            Vec3d offset = turtle.getRenderOffset( f );
+            float yaw = turtle.getRenderYaw( f );
+            GlStateManager.translated( posX + offset.x, posY + offset.y, posZ + offset.z );
 
             // Render the label
             String label = turtle.createProxy().getLabel();
@@ -102,15 +106,15 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
             }
 
             // Render the turtle
-            GlStateManager.translate( 0.5f, 0.5f, 0.5f );
-            GlStateManager.rotate( 180.0f - yaw, 0.0f, 1.0f, 0.0f );
+            GlStateManager.translatef( 0.5f, 0.5f, 0.5f );
+            GlStateManager.rotatef( 180.0f - yaw, 0.0f, 1.0f, 0.0f );
             if( label != null && (label.equals( "Dinnerbone" ) || label.equals( "Grumm" )) )
             {
                 // Flip the model and swap the cull face as winding order will have changed.
-                GlStateManager.scale( 1.0f, -1.0f, 1.0f );
+                GlStateManager.scalef( 1.0f, -1.0f, 1.0f );
                 GlStateManager.cullFace( GlStateManager.CullFace.FRONT );
             }
-            GlStateManager.translate( -0.5f, -0.5f, -0.5f );
+            GlStateManager.translatef( -0.5f, -0.5f, -0.5f );
             // Render the turtle
             int colour;
             ComputerFamily family;
@@ -123,7 +127,6 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
 
             // Render the overlay
             ModelResourceLocation overlayModel = getTurtleOverlayModel(
-                family,
                 overlay,
                 HolidayUtil.getCurrentHoliday() == Holiday.Christmas
             );
@@ -163,9 +166,9 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
             try
             {
                 float toolAngle = turtle.getToolRenderAngle( side, f );
-                GlStateManager.translate( 0.0f, 0.5f, 0.5f );
-                GlStateManager.rotate( -toolAngle, 1.0f, 0.0f, 0.0f );
-                GlStateManager.translate( 0.0f, -0.5f, -0.5f );
+                GlStateManager.translatef( 0.0f, 0.5f, 0.5f );
+                GlStateManager.rotatef( -toolAngle, 1.0f, 0.0f, 0.0f );
+                GlStateManager.translatef( 0.0f, -0.5f, -0.5f );
 
                 Pair<IBakedModel, Matrix4f> pair = upgrade.getModel( turtle.getAccess(), side );
                 if( pair != null )
@@ -189,20 +192,21 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
 
     private void renderModel( IBlockState state, ModelResourceLocation modelLocation, int[] tints )
     {
-        Minecraft mc = Minecraft.getMinecraft();
-        ModelManager modelManager = mc.getRenderItem().getItemModelMesher().getModelManager();
+        Minecraft mc = Minecraft.getInstance();
+        ModelManager modelManager = mc.getItemRenderer().getItemModelMesher().getModelManager();
         renderModel( state, modelManager.getModel( modelLocation ), tints );
     }
 
     private void renderModel( IBlockState state, IBakedModel model, int[] tints )
     {
-        Minecraft mc = Minecraft.getMinecraft();
+        Minecraft mc = Minecraft.getInstance();
+        Random random = new Random( 0 );
         Tessellator tessellator = Tessellator.getInstance();
         mc.getTextureManager().bindTexture( TextureMap.LOCATION_BLOCKS_TEXTURE );
-        renderQuads( tessellator, model.getQuads( state, null, 0 ), tints );
-        for( EnumFacing facing : EnumFacing.VALUES )
+        renderQuads( tessellator, model.getQuads( state, null, random ), tints );
+        for( EnumFacing facing : DirectionUtil.FACINGS )
         {
-            renderQuads( tessellator, model.getQuads( state, facing, 0 ), tints );
+            renderQuads( tessellator, model.getQuads( state, facing, random ), tints );
         }
     }
 
@@ -235,12 +239,11 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
 
     private void renderLabel( BlockPos position, String label )
     {
-        Minecraft mc = Minecraft.getMinecraft();
+        Minecraft mc = Minecraft.getInstance();
         RayTraceResult mop = mc.objectMouseOver;
-        if( mop != null && mop.typeOfHit == RayTraceResult.Type.BLOCK && mop.getBlockPos().equals( position ) )
+        if( mop != null && mop.type == RayTraceResult.Type.BLOCK && mop.getBlockPos().equals( position ) )
         {
-            RenderManager renderManager = mc.getRenderManager();
-            FontRenderer fontrenderer = renderManager.getFontRenderer();
+            FontRenderer fontrenderer = rendererDispatcher.getFontRenderer();
             float scale = 0.016666668F * 1.6f;
 
             GlStateManager.pushMatrix();
@@ -249,17 +252,17 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
             GlStateManager.blendFunc( GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA );
             try
             {
-                GlStateManager.translate( 0.5f, 1.25f, 0.5f );
-                GlStateManager.rotate( -renderManager.playerViewY, 0.0F, 1.0F, 0.0F );
-                GlStateManager.rotate( renderManager.playerViewX, 1.0F, 0.0F, 0.0F );
-                GlStateManager.scale( -scale, -scale, scale );
+                GlStateManager.translatef( 0.5f, 1.25f, 0.5f );
+                GlStateManager.rotatef( -rendererDispatcher.entityPitch, 0.0F, 1.0F, 0.0F );
+                GlStateManager.rotatef( rendererDispatcher.entityYaw, 1.0F, 0.0F, 0.0F );// TODO: Right way round?
+                GlStateManager.scalef( -scale, -scale, scale );
 
                 int yOffset = 0;
                 int xOffset = fontrenderer.getStringWidth( label ) / 2;
 
                 // Draw background
                 GlStateManager.depthMask( false );
-                GlStateManager.disableDepth();
+                GlStateManager.disableDepthTest();
                 try
                 {
                     // Quad
@@ -281,16 +284,16 @@ public class TileEntityTurtleRenderer extends TileEntitySpecialRenderer<TileTurt
                     }
 
                     // Text
-                    fontrenderer.drawString( label, -fontrenderer.getStringWidth( label ) / 2, yOffset, 0x20ffffff );
+                    fontrenderer.drawString( label, -fontrenderer.getStringWidth( label ) / 2.0f, yOffset, 0x20ffffff );
                 }
                 finally
                 {
-                    GlStateManager.enableDepth();
+                    GlStateManager.enableDepthTest();
                     GlStateManager.depthMask( true );
                 }
 
                 // Draw foreground text
-                fontrenderer.drawString( label, -fontrenderer.getStringWidth( label ) / 2, yOffset, -1 );
+                fontrenderer.drawString( label, -fontrenderer.getStringWidth( label ) / 2.0f, yOffset, -1 );
             }
             finally
             {
