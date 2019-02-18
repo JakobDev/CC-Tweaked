@@ -57,8 +57,29 @@ final class ComputerExecutor
      * thread, so locks should be kept as brief as possible.
      */
     private final Object queueLock = new Object();
+
+    /**
+     * Whether we're currently on the {@link ComputerThread} queue. This also includes tasks executing upon the queue
+     *
+     * @see #enqueue()
+     * @see #requeue(long)
+     */
     volatile boolean onComputerQueue = false;
+
+    /**
+     * The tasks which should be executed
+     */
     private final Queue<ExecutorTask> taskQueue = new ArrayBlockingQueue<>( QUEUE_LIMIT );
+
+    /**
+     * Whether we interrupted an event and so should resume it instead of executing another task.
+     */
+    private boolean interruptedEvent = false;
+
+    /**
+     * The duration of the current task. This is only valid {@link #interruptedEvent} is set.
+     */
+    long currentDuration;
 
     /**
      * The command that {@link #runCommand()} should execute on the computer thread.
@@ -132,23 +153,42 @@ final class ComputerExecutor
     }
 
     /**
-     * Abort the current Lua machine
+     * Tell the current Lua machine that it should pause.
      *
-     * @param hard Whether this is a hard abort. Namely, if this should be terminated with no hope of recovery.
+     * @see ILuaMachine#pause()
      */
-    void abort( boolean hard )
+    void pause()
     {
         ILuaMachine machine = this.machine;
-        if( machine == null ) return;
+        if( machine != null ) machine.pause();
+    }
 
-        if( hard )
-        {
-            this.machine.hardAbort( "Too long without yielding" );
-        }
-        else
-        {
-            this.machine.softAbort( "Too long without yielding" );
-        }
+    /**
+     * "Soft" abort the current machine.
+     *
+     * @see #hardAbort()
+     * @see ILuaMachine#softAbort(String)
+     */
+    void softAbort()
+    {
+        ILuaMachine machine = this.machine;
+        if( machine != null ) machine.softAbort( "Too long without yielding" );
+    }
+
+    /**
+     * "Hard" abort the current machine.
+     *
+     * This will cause the Lua machine to enter a point where it will no longer execute work.
+     *
+     * @see #softAbort()
+     * @see ILuaMachine#hardAbort(String)
+     */
+    void hardAbort()
+    {
+        ILuaMachine machine = this.machine;
+        if( machine != null ) machine.hardAbort( "Too long without yielding" );
+        // TODO: Queue a shutdown or something - if we don't halt when hard aborting, we'll never actually shut
+        //  the thing down.
     }
 
     /**
@@ -215,12 +255,7 @@ final class ComputerExecutor
 
             taskQueue.offer( () -> {
                 if( !isOn ) return;
-                machine.handleEvent( event, args );
-                if( machine.isFinished() )
-                {
-                    displayFailure( "Error resuming bios.lua" );
-                    shutdown();
-                }
+                resumeMachine( event, args );
             } );
             enqueue();
         }
@@ -255,12 +290,16 @@ final class ComputerExecutor
 
     /**
      * Re-add this executor to the {@link ComputerThread}, or remove it if we have no more work.
+     *
+     * @param duration How long the previous task executed for.
      */
-    void requeue()
+    void requeue( long duration )
     {
         synchronized( queueLock )
         {
-            if( taskQueue.isEmpty() )
+            currentDuration = interruptedEvent ? currentDuration + duration : 0;
+
+            if( taskQueue.isEmpty() && !interruptedEvent )
             {
                 onComputerQueue = false;
             }
@@ -385,7 +424,6 @@ final class ComputerExecutor
     {
         // Reset some old state
         computer.getTerminal().reset();
-        taskQueue.clear();
 
         // Init filesystem
         FileSystem fileSystem = this.fileSystem = createFileSystem();
@@ -410,13 +448,13 @@ final class ComputerExecutor
         isOn = true;
         computer.markChanged();
 
-        machine.handleEvent( null, null );
+        resumeMachine( null, null );
     }
 
     private void shutdown()
     {
         isOn = false;
-        taskQueue.clear();
+        interruptedEvent = false;
 
         // Shutdown Lua machine
         if( machine != null )
@@ -479,6 +517,16 @@ final class ComputerExecutor
         }
     }
 
+    private void resumeMachine( String event, Object[] args )
+    {
+        interruptedEvent = machine.handleEvent( event, args );
+        if( machine.isFinished() )
+        {
+            displayFailure( "Error resuming bios.lua" );
+            shutdown();
+        }
+    }
+
     void work() throws InterruptedException
     {
         if( isExecuting.getAndSet( true ) )
@@ -488,6 +536,17 @@ final class ComputerExecutor
 
         try
         {
+            if( interruptedEvent )
+            {
+                ILuaMachine machine = this.machine;
+                interruptedEvent = false;
+                if( machine != null )
+                {
+                    resumeMachine( null, null );
+                    return;
+                }
+            }
+
             ExecutorTask task = taskQueue.poll();
             if( task != null ) task.run();
         }

@@ -14,10 +14,28 @@ import javax.annotation.Nonnull;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class ComputerThread
 {
+    /**
+     * The time to run a task before pausing
+     */
+    private static final long TIMESLICE = TimeUnit.MILLISECONDS.toNanos( 50 );
+
+    /**
+     * The total time a task is allowed to run before aborting.
+     */
+    private static final long TIMEOUT = TimeUnit.MILLISECONDS.toNanos( 7000 );
+
+    /**
+     * The time the task is allowed to run after each abort.
+     */
+    private static final long ABORT_TIMEOUT = TimeUnit.MILLISECONDS.toNanos( 2500 );
+
     /**
      * Lock used for modifications to the object
      */
@@ -137,29 +155,47 @@ public class ComputerThread
 
         private void execute( @Nonnull ComputerExecutor executor ) throws InterruptedException
         {
+            TaskRunner runner = this.runner;
             if( thread == null || !thread.isAlive() )
             {
-                runner = new TaskRunner();
+                runner = this.runner = new TaskRunner();
                 (thread = s_RunnerFactory.newThread( runner )).start();
             }
 
+            runner.lock.lockInterruptibly();
+
             long start = System.nanoTime();
-
-            // Execute the task
-            runner.submit( executor );
-
             try
             {
-                // We allow tasks to run for 7 seconds by default
-                if( runner.await( 7000 ) ) return;
+                // Execute the task
+                runner.submit( executor );
+
+                long duration = executor.currentDuration;
+                while( duration < TIMEOUT )
+                {
+                    // Run the computer for a timeslice.
+                    if( runner.await( TIMESLICE ) ) return;
+                    duration = executor.currentDuration + (System.nanoTime() - start);
+
+                    // If we've no other tasks to do, we can continue working on this one. Otherwise, try
+                    // to suspend.
+                    if( !computersActive.isEmpty() )
+                    {
+                        executor.pause();
+                        break;
+                    }
+                }
+
+                // Run for any remaining timeslice.
+                if( runner.await( TIMEOUT - duration ) ) return;
 
                 // If they overreach that, then attempt to soft abort
-                executor.abort( false );
-                if( runner.await( 1500 ) ) return;
+                executor.softAbort();
+                if( runner.await( ABORT_TIMEOUT ) ) return;
 
                 // Then hard abort
-                executor.abort( true );
-                if( runner.await( 1500 ) ) return;
+                executor.hardAbort();
+                if( runner.await( ABORT_TIMEOUT ) ) return;
 
                 if( ComputerCraft.logPeripheralErrors )
                 {
@@ -187,27 +223,33 @@ public class ComputerThread
                 // Interrupt the thread
                 thread.interrupt();
                 thread = null;
-                runner = null;
+                this.runner = null;
             }
             finally
             {
-                long stop = System.nanoTime();
-                Tracking.addTaskTiming( executor.getComputer(), stop - start );
+                long duration = System.nanoTime() - start;
+                Tracking.addTaskTiming( executor.getComputer(), duration );
 
-                executor.requeue();
+                executor.requeue( duration );
+
+                runner.lock.unlock();
             }
         }
     }
 
     /**
-     * Responsible for the actual running of tasks. It waits for the {@link TaskRunner#input} semaphore to be
-     * triggered, consumes a task and then triggers {@link TaskRunner#finished}.
+     * Responsible for the actual running of tasks. It waits for the {@link TaskRunner#executorSignal} semaphore to be
+     * triggered, consumes a task and then triggers {@link TaskRunner#finishedSignal}.
      */
     private static final class TaskRunner implements Runnable
     {
-        private final Semaphore input = new Semaphore();
-        private final Semaphore finished = new Semaphore();
-        private ComputerExecutor task;
+        private final ReentrantLock lock = new ReentrantLock();
+
+        private volatile ComputerExecutor executor;
+        private final Condition executorSignal = lock.newCondition();
+
+        private volatile boolean finished;
+        private final Condition finishedSignal = lock.newCondition();
 
         @Override
         public void run()
@@ -216,17 +258,40 @@ public class ComputerThread
             {
                 while( true )
                 {
-                    input.await();
+                    // Pull the task from the queue.
+                    lock.lockInterruptibly();
                     try
                     {
-                        task.work();
+                        if( executor == null ) executorSignal.await();
+                    }
+                    finally
+                    {
+                        lock.unlock();
+                    }
+
+                    // Execute the task. Note, this must be done outside the lock.
+                    try
+                    {
+                        executor.work();
                     }
                     catch( RuntimeException e )
                     {
                         ComputerCraft.log.error( "Error running task.", e );
                     }
-                    task = null;
-                    finished.signal();
+
+                    executor = null;
+
+                    // And mark the task as finished.
+                    lock.lockInterruptibly();
+                    try
+                    {
+                        finished = true;
+                        finishedSignal.signal();
+                    }
+                    finally
+                    {
+                        lock.unlock();
+                    }
                 }
             }
             catch( InterruptedException e )
@@ -238,45 +303,14 @@ public class ComputerThread
 
         void submit( ComputerExecutor task )
         {
-            this.task = task;
-            input.signal();
+            this.executor = task;
+            executorSignal.signal();
         }
 
         boolean await( long timeout ) throws InterruptedException
         {
-            return finished.await( timeout );
-        }
-    }
-
-    /**
-     * A simple method to allow awaiting/providing a signal.
-     *
-     * Java does provide similar classes, but I only needed something simple.
-     */
-    private static final class Semaphore
-    {
-        private volatile boolean state = false;
-
-        synchronized void signal()
-        {
-            state = true;
-            notify();
-        }
-
-        synchronized void await() throws InterruptedException
-        {
-            while( !state ) wait();
-            state = false;
-        }
-
-        synchronized boolean await( long timeout ) throws InterruptedException
-        {
-            if( !state )
-            {
-                wait( timeout );
-                if( !state ) return false;
-            }
-            state = false;
+            if( !finished && finishedSignal.awaitNanos( timeout ) <= 0 ) return false;
+            finished = false;
             return true;
         }
     }

@@ -40,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 import static org.squiddev.cobalt.Constants.NONE;
 import static org.squiddev.cobalt.ValueFactory.valueOf;
 import static org.squiddev.cobalt.ValueFactory.varargsOf;
+import static org.squiddev.cobalt.debug.DebugFrame.FLAG_HOOKED;
+import static org.squiddev.cobalt.debug.DebugFrame.FLAG_HOOKYIELD;
 
 public class CobaltLuaMachine implements ILuaMachine
 {
@@ -59,6 +61,7 @@ public class CobaltLuaMachine implements ILuaMachine
     private String m_eventFilter;
     private String m_softAbortMessage;
     private String m_hardAbortMessage;
+    private boolean pause;
 
     public CobaltLuaMachine( Computer computer )
     {
@@ -72,18 +75,44 @@ public class CobaltLuaMachine implements ILuaMachine
                 private int count = 0;
                 private boolean hasSoftAbort;
 
+                private boolean hasPaused;
+                private int pausedFlags;
+                private boolean pausedInHook;
+
                 @Override
                 public void onInstruction( DebugState ds, DebugFrame di, int pc ) throws LuaError, UnwindThrowable
                 {
+                    di.pc = pc;
+
+                    if( hasPaused )
+                    {
+                        // If we're resuming from a paused instruction, restore the old state and continue
+                        ds.inhook = pausedInHook;
+                        di.flags = pausedFlags;
+                        hasPaused = false;
+                        super.onInstruction( ds, di, pc );
+                        return;
+                    }
+
                     int count = ++this.count;
                     if( count > 100000 )
                     {
                         if( m_hardAbortMessage != null ) throw HardAbortError.INSTANCE;
                         this.count = 0;
                     }
-                    else
+
+                    handleSoftAbort();
+
+                    if( pause )
                     {
-                        handleSoftAbort();
+                        // If we're meant to pause the Lua VM, do so. We save the current state,
+                        // and setup the flags to ensure we resume into this method.
+                        pausedInHook = ds.inhook;
+                        pausedFlags = di.flags;
+                        di.flags |= FLAG_HOOKYIELD | FLAG_HOOKED;
+                        hasPaused = true;
+
+                        throw UnwindThrowable.suspend();
                     }
 
                     super.onInstruction( ds, di, pc );
@@ -204,13 +233,14 @@ public class CobaltLuaMachine implements ILuaMachine
     }
 
     @Override
-    public void handleEvent( String eventName, Object[] arguments )
+    public boolean handleEvent( String eventName, Object[] arguments )
     {
-        if( m_mainRoutine == null ) return;
+        if( m_mainRoutine == null ) return false;
 
+        // If we've a filter, block events which don't match the filter and aren't "terminate"
         if( m_eventFilter != null && eventName != null && !eventName.equals( m_eventFilter ) && !eventName.equals( "terminate" ) )
         {
-            return;
+            return false;
         }
 
         try
@@ -221,13 +251,21 @@ public class CobaltLuaMachine implements ILuaMachine
                 resumeArgs = varargsOf( valueOf( eventName ), toValues( arguments ) );
             }
 
-            Varargs results = LuaThread.run( m_mainRoutine, resumeArgs );
+            LuaThread thread = m_state.getCurrentThread();
+            if( thread == null || thread == m_state.getMainThread() ) thread = m_mainRoutine;
+            Varargs results = LuaThread.run( thread, resumeArgs );
+
+            // If we've been aborted, kill the whole thing
             if( m_hardAbortMessage != null ) throw new LuaError( m_hardAbortMessage );
+
+            // If we've no results, this means the machine has been paused.
+            if( results == null ) return true;
 
             LuaValue filter = results.first();
             m_eventFilter = filter.isString() ? filter.toString() : null;
 
             if( m_mainRoutine.getStatus().equals( "dead" ) ) close();
+            return false;
         }
         catch( LuaError | HardAbortError e )
         {
@@ -238,17 +276,26 @@ public class CobaltLuaMachine implements ILuaMachine
         {
             m_softAbortMessage = null;
             m_hardAbortMessage = null;
+            pause = false;
         }
+
+        return false;
     }
 
     @Override
-    public void softAbort( String abortMessage )
+    public void pause()
+    {
+        pause = true;
+    }
+
+    @Override
+    public void softAbort( @Nonnull String abortMessage )
     {
         m_softAbortMessage = abortMessage;
     }
 
     @Override
-    public void hardAbort( String abortMessage )
+    public void hardAbort( @Nonnull String abortMessage )
     {
         m_softAbortMessage = abortMessage;
         m_hardAbortMessage = abortMessage;
