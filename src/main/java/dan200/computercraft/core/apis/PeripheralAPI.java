@@ -12,9 +12,6 @@ import dan200.computercraft.api.lua.ILuaAPI;
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.core.computer.Computer;
-import dan200.computercraft.core.computer.ComputerThread;
-import dan200.computercraft.core.computer.ITask;
 import dan200.computercraft.core.tracking.TrackingField;
 
 import javax.annotation.Nonnull;
@@ -256,27 +253,12 @@ public class PeripheralAPI implements ILuaAPI, IAPIEnvironment.IPeripheralChange
             {
                 // Queue a detachment
                 final PeripheralWrapper wrapper = m_peripherals[side];
-                ComputerThread.queueTask( new ITask()
-                {
-                    @Nonnull
-                    @Override
-                    public Computer getOwner()
+                m_environment.getComputer().queueTask( () -> {
+                    synchronized( m_peripherals )
                     {
-                        return m_environment.getComputer();
+                        if( wrapper.isAttached() ) wrapper.detach();
                     }
-
-                    @Override
-                    public void execute()
-                    {
-                        synchronized( m_peripherals )
-                        {
-                            if( wrapper.isAttached() )
-                            {
-                                wrapper.detach();
-                            }
-                        }
-                    }
-                }, null );
+                } );
 
                 // Queue a detachment event
                 m_environment.queueEvent( "peripheral_detach", new Object[] { IAPIEnvironment.SIDE_NAMES[side] } );
@@ -296,27 +278,12 @@ public class PeripheralAPI implements ILuaAPI, IAPIEnvironment.IPeripheralChange
             {
                 // Queue an attachment
                 final PeripheralWrapper wrapper = m_peripherals[side];
-                ComputerThread.queueTask( new ITask()
-                {
-                    @Nonnull
-                    @Override
-                    public Computer getOwner()
+                m_environment.getComputer().queueTask( () -> {
+                    synchronized( m_peripherals )
                     {
-                        return m_environment.getComputer();
+                        if( m_running && !wrapper.isAttached() ) wrapper.attach();
                     }
-
-                    @Override
-                    public void execute()
-                    {
-                        synchronized( m_peripherals )
-                        {
-                            if( m_running && !wrapper.isAttached() )
-                            {
-                                wrapper.attach();
-                            }
-                        }
-                    }
-                }, null );
+                } );
 
                 // Queue an attachment event
                 m_environment.queueEvent( "peripheral", new Object[] { IAPIEnvironment.SIDE_NAMES[side] } );
