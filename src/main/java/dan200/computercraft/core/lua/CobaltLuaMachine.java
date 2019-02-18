@@ -11,6 +11,7 @@ import dan200.computercraft.api.lua.*;
 import dan200.computercraft.core.computer.Computer;
 import dan200.computercraft.core.computer.ITask;
 import dan200.computercraft.core.computer.MainThread;
+import dan200.computercraft.core.computer.TimeoutFlags;
 import dan200.computercraft.core.tracking.Tracking;
 import dan200.computercraft.core.tracking.TrackingField;
 import dan200.computercraft.shared.util.ThreadUtils;
@@ -43,32 +44,31 @@ import static org.squiddev.cobalt.ValueFactory.varargsOf;
 import static org.squiddev.cobalt.debug.DebugFrame.FLAG_HOOKED;
 import static org.squiddev.cobalt.debug.DebugFrame.FLAG_HOOKYIELD;
 
-public class CobaltLuaMachine implements ILuaMachine
+class CobaltLuaMachine implements ILuaMachine
 {
-    private static final ThreadPoolExecutor coroutines = new ThreadPoolExecutor(
+    private static final ThreadPoolExecutor COROUTINE_EXECUTOR = new ThreadPoolExecutor(
         0, Integer.MAX_VALUE,
         5L, TimeUnit.MINUTES,
         new SynchronousQueue<>(),
         ThreadUtils.factory( "Coroutine" )
     );
 
-    private final Computer m_computer;
+    private final Computer computer;
+    private final TimeoutFlags timeout;
 
-    private LuaState m_state;
-    private LuaTable m_globals;
-    private LuaThread m_mainRoutine;
+    private LuaState state;
+    private LuaTable globals;
+    private LuaThread mainRoutine;
 
-    private String m_eventFilter;
-    private String m_softAbortMessage;
-    private String m_hardAbortMessage;
-    private boolean pause;
+    private String eventFilter;
 
-    public CobaltLuaMachine( Computer computer )
+    CobaltLuaMachine( Computer computer, TimeoutFlags timeout )
     {
-        m_computer = computer;
+        this.computer = computer;
+        this.timeout = timeout;
 
         // Create an environment to run in
-        LuaState state = this.m_state = LuaState.builder()
+        LuaState state = this.state = LuaState.builder()
             .resourceManipulator( new VoidResourceManipulator() )
             .debug( new DebugHandler()
             {
@@ -97,13 +97,13 @@ public class CobaltLuaMachine implements ILuaMachine
                     int count = ++this.count;
                     if( count > 100000 )
                     {
-                        if( m_hardAbortMessage != null ) throw HardAbortError.INSTANCE;
+                        if( timeout.isHardAborted() ) throw HardAbortError.INSTANCE;
                         this.count = 0;
                     }
 
                     handleSoftAbort();
 
-                    if( pause )
+                    if( timeout.isPaused() )
                     {
                         // If we're meant to pause the Lua VM, do so. We save the current state,
                         // and setup the flags to ensure we resume into this method.
@@ -121,81 +121,73 @@ public class CobaltLuaMachine implements ILuaMachine
                 @Override
                 public void poll() throws LuaError
                 {
-                    if( m_hardAbortMessage != null ) throw HardAbortError.INSTANCE;
+                    if( timeout.isHardAborted() ) throw HardAbortError.INSTANCE;
                     handleSoftAbort();
                 }
 
                 private void handleSoftAbort() throws LuaError
                 {
                     // If the soft abort has been cleared then we can reset our flags and continue.
-                    String message = m_softAbortMessage;
-                    if( message == null )
+                    if( !timeout.isSoftAborted() )
                     {
                         hasSoftAbort = false;
                         return;
                     }
 
-                    if( hasSoftAbort && m_hardAbortMessage == null )
+                    if( hasSoftAbort && !timeout.isHardAborted() )
                     {
                         // If we have fired our soft abort, but we haven't been hard aborted then everything is OK.
                         return;
                     }
 
                     hasSoftAbort = true;
-                    throw new LuaError( message );
+                    throw new LuaError( TimeoutFlags.ABORT_MESSAGE );
                 }
             } )
             .yieldThreader( command -> {
-                Tracking.addValue( m_computer, TrackingField.COROUTINES_CREATED, 1 );
-                coroutines.execute( () -> {
+                Tracking.addValue( this.computer, TrackingField.COROUTINES_CREATED, 1 );
+                COROUTINE_EXECUTOR.execute( () -> {
                     try
                     {
                         command.run();
                     }
                     finally
                     {
-                        Tracking.addValue( m_computer, TrackingField.COROUTINES_DISPOSED, 1 );
+                        Tracking.addValue( this.computer, TrackingField.COROUTINES_DISPOSED, 1 );
                     }
                 } );
             } )
             .build();
 
-        m_globals = new LuaTable();
-        state.setupThread( m_globals );
+        globals = new LuaTable();
+        state.setupThread( globals );
 
         // Add basic libraries
-        m_globals.load( state, new BaseLib() );
-        m_globals.load( state, new TableLib() );
-        m_globals.load( state, new StringLib() );
-        m_globals.load( state, new MathLib() );
-        m_globals.load( state, new CoroutineLib() );
-        m_globals.load( state, new Bit32Lib() );
-        if( ComputerCraft.debug_enable ) m_globals.load( state, new DebugLib() );
+        globals.load( state, new BaseLib() );
+        globals.load( state, new TableLib() );
+        globals.load( state, new StringLib() );
+        globals.load( state, new MathLib() );
+        globals.load( state, new CoroutineLib() );
+        globals.load( state, new Bit32Lib() );
+        if( ComputerCraft.debug_enable ) globals.load( state, new DebugLib() );
 
         // Register custom load/loadstring provider which automatically adds prefixes.
-        LibFunction.bind( m_globals, PrefixLoader.class, new String[] { "load", "loadstring" } );
+        LibFunction.bind( globals, PrefixLoader.class, new String[] { "load", "loadstring" } );
 
         // Remove globals we don't want to expose
-        m_globals.rawset( "collectgarbage", Constants.NIL );
-        m_globals.rawset( "dofile", Constants.NIL );
-        m_globals.rawset( "loadfile", Constants.NIL );
-        m_globals.rawset( "print", Constants.NIL );
+        globals.rawset( "collectgarbage", Constants.NIL );
+        globals.rawset( "dofile", Constants.NIL );
+        globals.rawset( "loadfile", Constants.NIL );
+        globals.rawset( "print", Constants.NIL );
 
         // Add version globals
-        m_globals.rawset( "_VERSION", valueOf( "Lua 5.1" ) );
-        m_globals.rawset( "_HOST", valueOf( computer.getAPIEnvironment().getComputerEnvironment().getHostString() ) );
-        m_globals.rawset( "_CC_DEFAULT_SETTINGS", valueOf( ComputerCraft.default_computer_settings ) );
+        globals.rawset( "_VERSION", valueOf( "Lua 5.1" ) );
+        globals.rawset( "_HOST", valueOf( computer.getAPIEnvironment().getComputerEnvironment().getHostString() ) );
+        globals.rawset( "_CC_DEFAULT_SETTINGS", valueOf( ComputerCraft.default_computer_settings ) );
         if( ComputerCraft.disable_lua51_features )
         {
-            m_globals.rawset( "_CC_DISABLE_LUA51_FEATURES", Constants.TRUE );
+            globals.rawset( "_CC_DISABLE_LUA51_FEATURES", Constants.TRUE );
         }
-
-        // Our main function will go here
-        m_mainRoutine = null;
-        m_eventFilter = null;
-
-        m_softAbortMessage = null;
-        m_hardAbortMessage = null;
     }
 
     @Override
@@ -206,7 +198,7 @@ public class CobaltLuaMachine implements ILuaMachine
         String[] names = api.getNames();
         for( String name : names )
         {
-            m_globals.rawset( name, table );
+            globals.rawset( name, table );
         }
     }
 
@@ -214,12 +206,12 @@ public class CobaltLuaMachine implements ILuaMachine
     public void loadBios( InputStream bios )
     {
         // Begin executing a file (ie, the bios)
-        if( m_mainRoutine != null ) return;
+        if( mainRoutine != null ) return;
 
         try
         {
-            LuaFunction value = LoadState.load( m_state, bios, "@bios.lua", m_globals );
-            m_mainRoutine = new LuaThread( m_state, value, m_globals );
+            LuaFunction value = LoadState.load( state, bios, "@bios.lua", globals );
+            mainRoutine = new LuaThread( state, value, globals );
         }
         catch( CompileException e )
         {
@@ -235,10 +227,10 @@ public class CobaltLuaMachine implements ILuaMachine
     @Override
     public boolean handleEvent( String eventName, Object[] arguments )
     {
-        if( m_mainRoutine == null ) return false;
+        if( mainRoutine == null ) return false;
 
         // If we've a filter, block events which don't match the filter and aren't "terminate"
-        if( m_eventFilter != null && eventName != null && !eventName.equals( m_eventFilter ) && !eventName.equals( "terminate" ) )
+        if( eventFilter != null && eventName != null && !eventName.equals( eventFilter ) && !eventName.equals( "terminate" ) )
         {
             return false;
         }
@@ -251,20 +243,20 @@ public class CobaltLuaMachine implements ILuaMachine
                 resumeArgs = varargsOf( valueOf( eventName ), toValues( arguments ) );
             }
 
-            LuaThread thread = m_state.getCurrentThread();
-            if( thread == null || thread == m_state.getMainThread() ) thread = m_mainRoutine;
+            LuaThread thread = state.getCurrentThread();
+            if( thread == null || thread == state.getMainThread() ) thread = mainRoutine;
             Varargs results = LuaThread.run( thread, resumeArgs );
 
             // If we've been aborted, kill the whole thing
-            if( m_hardAbortMessage != null ) throw new LuaError( m_hardAbortMessage );
+            if( timeout.isHardAborted() ) throw new LuaError( TimeoutFlags.ABORT_MESSAGE );
 
             // If we've no results, this means the machine has been paused.
             if( results == null ) return true;
 
             LuaValue filter = results.first();
-            m_eventFilter = filter.isString() ? filter.toString() : null;
+            eventFilter = filter.isString() ? filter.toString() : null;
 
-            if( m_mainRoutine.getStatus().equals( "dead" ) ) close();
+            if( mainRoutine.getStatus().equals( "dead" ) ) close();
             return false;
         }
         catch( LuaError | HardAbortError e )
@@ -272,50 +264,25 @@ public class CobaltLuaMachine implements ILuaMachine
             close();
             ComputerCraft.log.warn( "Top level coroutine errored", e );
         }
-        finally
-        {
-            m_softAbortMessage = null;
-            m_hardAbortMessage = null;
-            pause = false;
-        }
 
         return false;
     }
 
     @Override
-    public void pause()
-    {
-        pause = true;
-    }
-
-    @Override
-    public void softAbort( @Nonnull String abortMessage )
-    {
-        m_softAbortMessage = abortMessage;
-    }
-
-    @Override
-    public void hardAbort( @Nonnull String abortMessage )
-    {
-        m_softAbortMessage = abortMessage;
-        m_hardAbortMessage = abortMessage;
-    }
-
-    @Override
     public boolean isFinished()
     {
-        return m_mainRoutine == null;
+        return mainRoutine == null;
     }
 
     @Override
     public void close()
     {
-        if( m_state == null ) return;
+        if( state == null ) return;
 
-        m_state.abandon();
-        m_mainRoutine = null;
-        m_state = null;
-        m_globals = null;
+        state.abandon();
+        mainRoutine = null;
+        state = null;
+        globals = null;
     }
 
     private LuaTable wrapLuaObject( ILuaObject object )
@@ -384,7 +351,7 @@ public class CobaltLuaMachine implements ILuaMachine
                                         @Override
                                         public Computer getOwner()
                                         {
-                                            return m_computer;
+                                            return computer;
                                         }
 
                                         @Override
@@ -399,16 +366,16 @@ public class CobaltLuaMachine implements ILuaMachine
                                                     eventArguments[0] = taskID;
                                                     eventArguments[1] = true;
                                                     System.arraycopy( results, 0, eventArguments, 2, results.length );
-                                                    m_computer.queueEvent( "task_complete", eventArguments );
+                                                    computer.queueEvent( "task_complete", eventArguments );
                                                 }
                                                 else
                                                 {
-                                                    m_computer.queueEvent( "task_complete", new Object[] { taskID, true } );
+                                                    computer.queueEvent( "task_complete", new Object[] { taskID, true } );
                                                 }
                                             }
                                             catch( LuaException e )
                                             {
-                                                m_computer.queueEvent( "task_complete", new Object[] {
+                                                computer.queueEvent( "task_complete", new Object[] {
                                                     taskID, false, e.getMessage()
                                                 } );
                                             }
@@ -418,7 +385,7 @@ public class CobaltLuaMachine implements ILuaMachine
                                                 {
                                                     ComputerCraft.log.error( "Error running task", t );
                                                 }
-                                                m_computer.queueEvent( "task_complete", new Object[] {
+                                                computer.queueEvent( "task_complete", new Object[] {
                                                     taskID, false, "Java Exception Thrown: " + t.toString()
                                                 } );
                                             }

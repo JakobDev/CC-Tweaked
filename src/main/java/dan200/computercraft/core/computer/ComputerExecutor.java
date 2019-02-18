@@ -14,7 +14,6 @@ import dan200.computercraft.api.lua.ILuaAPIFactory;
 import dan200.computercraft.core.apis.*;
 import dan200.computercraft.core.filesystem.FileSystem;
 import dan200.computercraft.core.filesystem.FileSystemException;
-import dan200.computercraft.core.lua.CobaltLuaMachine;
 import dan200.computercraft.core.lua.ILuaMachine;
 import dan200.computercraft.core.terminal.Terminal;
 import dan200.computercraft.shared.util.IoUtil;
@@ -62,9 +61,23 @@ final class ComputerExecutor
      * Whether we're currently on the {@link ComputerThread} queue. This also includes tasks executing upon the queue
      *
      * @see #enqueue()
-     * @see #requeue(long)
+     * @see #checkRequeue(long)
      */
     volatile boolean onComputerQueue = false;
+
+    /**
+     * The amount of time this computer has used on a theoretical machine which shares work evenly amongst computers.
+     *
+     * @see ComputerThread
+     */
+    volatile long virtualRuntime = 0;
+
+    /**
+     * The last time at which we updated {@link #virtualRuntime}.
+     *
+     * @see ComputerThread
+     */
+    volatile long currentStart;
 
     /**
      * The tasks which should be executed
@@ -73,13 +86,27 @@ final class ComputerExecutor
 
     /**
      * Whether we interrupted an event and so should resume it instead of executing another task.
+     *
+     * @see #checkRequeue(long)
+     * @see #resumeMachine(String, Object[])
      */
-    private boolean interruptedEvent = false;
+    private volatile boolean interruptedEvent = false;
 
     /**
      * The duration of the current task. This is only valid {@link #interruptedEvent} is set.
+     *
+     * @see ComputerThread
+     * @see #checkRequeue(long)
      */
     long currentDuration;
+
+    /**
+     * Which timeouts/aborts have currently been set by the computer thread.
+     *
+     * @see ComputerThread
+     * @see ILuaMachine
+     */
+    final TimeoutFlags timeout = new TimeoutFlags();
 
     /**
      * The command that {@link #runCommand()} should execute on the computer thread.
@@ -93,7 +120,7 @@ final class ComputerExecutor
     private volatile StateCommand command;
 
     /**
-     * Whetehr this executor has been closed, and will no longer accept any incoming commands or events.
+     * Whether this executor has been closed, and will no longer accept any incoming commands or events.
      *
      * @see #queueStop(boolean, boolean)
      */
@@ -150,45 +177,6 @@ final class ComputerExecutor
     void addApi( ILuaAPI api )
     {
         apis.add( api );
-    }
-
-    /**
-     * Tell the current Lua machine that it should pause.
-     *
-     * @see ILuaMachine#pause()
-     */
-    void pause()
-    {
-        ILuaMachine machine = this.machine;
-        if( machine != null ) machine.pause();
-    }
-
-    /**
-     * "Soft" abort the current machine.
-     *
-     * @see #hardAbort()
-     * @see ILuaMachine#softAbort(String)
-     */
-    void softAbort()
-    {
-        ILuaMachine machine = this.machine;
-        if( machine != null ) machine.softAbort( "Too long without yielding" );
-    }
-
-    /**
-     * "Hard" abort the current machine.
-     *
-     * This will cause the Lua machine to enter a point where it will no longer execute work.
-     *
-     * @see #softAbort()
-     * @see ILuaMachine#hardAbort(String)
-     */
-    void hardAbort()
-    {
-        ILuaMachine machine = this.machine;
-        if( machine != null ) machine.hardAbort( "Too long without yielding" );
-        // TODO: Queue a shutdown or something - if we don't halt when hard aborting, we'll never actually shut
-        //  the thing down.
     }
 
     /**
@@ -283,30 +271,35 @@ final class ComputerExecutor
         synchronized( queueLock )
         {
             if( onComputerQueue ) return;
-            onComputerQueue = true;
             ComputerThread.queue( this );
         }
     }
 
     /**
-     * Re-add this executor to the {@link ComputerThread}, or remove it if we have no more work.
+     * Checkk if this executor should be re-added to the {@link ComputerThread}.
      *
      * @param duration How long the previous task executed for.
+     * @return If the task should be added back to the queue immediately.
      */
-    void requeue( long duration )
+    boolean checkRequeue( long duration )
     {
+        // We've finished a task, so reset all the paused flags.
+        timeout.resetPaused();
+
+        if( interruptedEvent )
+        {
+            // If we've been interrupted, increment the duration and requeue.
+            currentDuration += duration;
+            return true;
+        }
+
         synchronized( queueLock )
         {
-            currentDuration = interruptedEvent ? currentDuration + duration : 0;
-
-            if( taskQueue.isEmpty() && !interruptedEvent )
-            {
-                onComputerQueue = false;
-            }
-            else
-            {
-                ComputerThread.queue( this );
-            }
+            // Otherwise reset the duration + abort flags, and only requeue if we've more work.
+            currentDuration = 0;
+            timeout.resetAbort();
+            if( taskQueue.isEmpty() ) return onComputerQueue = false;
+            return true;
         }
     }
 
@@ -401,7 +394,7 @@ final class ComputerExecutor
         }
 
         // Create the lua machine
-        ILuaMachine machine = new CobaltLuaMachine( computer );
+        ILuaMachine machine = ILuaMachine.Factory.create( computer, timeout );
 
         // Add the APIs
         for( ILuaAPI api : apis ) machine.addAPI( api );
@@ -527,6 +520,11 @@ final class ComputerExecutor
         }
     }
 
+    /**
+     * The main method for performing work on a {@link ComputerThread}
+     *
+     * @throws InterruptedException When locks cannot be acquired.
+     */
     void work() throws InterruptedException
     {
         if( isExecuting.getAndSet( true ) )

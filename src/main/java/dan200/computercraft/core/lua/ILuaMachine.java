@@ -7,10 +7,13 @@
 package dan200.computercraft.core.lua;
 
 import dan200.computercraft.api.lua.ILuaAPI;
+import dan200.computercraft.core.computer.Computer;
+import dan200.computercraft.core.computer.TimeoutFlags;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.io.InputStream;
+import java.util.function.BiFunction;
 
 public interface ILuaMachine
 {
@@ -28,18 +31,39 @@ public interface ILuaMachine
     boolean handleEvent( @Nullable String eventName, @Nullable Object[] arguments );
 
     /**
-     * Tell the machine to pause itself.
+     * If this machine has finished executing, either due to an error or falling off the stack
      *
-     * There is no guarantee as to when the machine will actually be paused: this generally sets a flag which causes the
-     * machine to be suspended when the next opportunity arises.
+     * @return The machine to finish executing.
      */
-    void pause();
-
-    void softAbort( @Nonnull String abortMessage );
-
-    void hardAbort( @Nonnull String abortMessage );
-
     boolean isFinished();
 
+    /**
+     * Dispose of this machine, releasing any resources
+     */
     void close();
+
+    /**
+     * The global factory for {@link ILuaMachine}s.
+     */
+    final class Factory
+    {
+        public static BiFunction<Computer, TimeoutFlags, ILuaMachine> factory = CobaltLuaMachine::new;
+
+        private Factory()
+        {
+        }
+
+        /**
+         * Construct a new machine from the given computer and timeout information.
+         *
+         * @param computer The current computer
+         * @param flags    The timeout flags, these will be updated when the computer must be paused or stopped
+         * @return The constructed machine
+         */
+        @Nonnull
+        public static ILuaMachine create( @Nonnull Computer computer, @Nonnull TimeoutFlags flags )
+        {
+            return factory.apply( computer, flags );
+        }
+    }
 }

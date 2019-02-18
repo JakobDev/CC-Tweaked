@@ -89,7 +89,7 @@ public class Computer
 
     public void turnOn()
     {
-        startRequested = true;
+        if( !isOn() ) startRequested = true;
     }
 
     public void shutdown()
