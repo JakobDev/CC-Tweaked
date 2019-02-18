@@ -88,6 +88,7 @@ public class BasicEnvironment implements IComputerEnvironment
         File file = getContainingFile();
 
         String path = "assets/" + domain + "/" + subPath;
+
         if( file.isFile() )
         {
             try
@@ -101,7 +102,19 @@ public class BasicEnvironment implements IComputerEnvironment
         }
         else
         {
-            return new FileMount( new File( file, path ), 0 );
+            File wholeFile = new File( file, path );
+
+            // If we don't exist, walk up the tree looking for resource folders
+            File baseFile = file;
+            while( baseFile != null && !wholeFile.exists() )
+            {
+                baseFile = baseFile.getParentFile();
+                wholeFile = new File( baseFile, "resources/main/" + path );
+            }
+
+            if( !wholeFile.exists() ) throw new IllegalStateException( "Cannot find ROM mount at " + file );
+
+            return new FileMount( wholeFile, 0 );
         }
     }
 
