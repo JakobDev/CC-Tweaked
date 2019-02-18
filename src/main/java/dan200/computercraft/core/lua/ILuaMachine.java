@@ -9,7 +9,6 @@ package dan200.computercraft.core.lua;
 import dan200.computercraft.api.lua.ILuaAPI;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public interface ILuaMachine
 {
@@ -23,11 +22,7 @@ public interface ILuaMachine
 
     void hardAbort( String abortMessage );
 
-    boolean saveState( OutputStream output );
-
-    boolean restoreState( InputStream input );
-
     boolean isFinished();
 
-    void unload();
+    void close();
 }

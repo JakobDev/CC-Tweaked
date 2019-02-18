@@ -29,7 +29,6 @@ import org.squiddev.cobalt.lib.platform.VoidResourceManipulator;
 import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -195,12 +194,12 @@ public class CobaltLuaMachine implements ILuaMachine
         }
         catch( CompileException e )
         {
-            unload();
+            close();
         }
         catch( IOException e )
         {
             ComputerCraft.log.warn( "Could not load bios.lua ", e );
-            unload();
+            close();
         }
     }
 
@@ -228,11 +227,11 @@ public class CobaltLuaMachine implements ILuaMachine
             LuaValue filter = results.first();
             m_eventFilter = filter.isString() ? filter.toString() : null;
 
-            if( m_mainRoutine.getStatus().equals( "dead" ) ) unload();
+            if( m_mainRoutine.getStatus().equals( "dead" ) ) close();
         }
         catch( LuaError | HardAbortError e )
         {
-            unload();
+            close();
             ComputerCraft.log.warn( "Top level coroutine errored", e );
         }
         finally
@@ -256,25 +255,13 @@ public class CobaltLuaMachine implements ILuaMachine
     }
 
     @Override
-    public boolean saveState( OutputStream output )
-    {
-        return false;
-    }
-
-    @Override
-    public boolean restoreState( InputStream input )
-    {
-        return false;
-    }
-
-    @Override
     public boolean isFinished()
     {
         return m_mainRoutine == null;
     }
 
     @Override
-    public void unload()
+    public void close()
     {
         if( m_state == null ) return;
 
