@@ -258,6 +258,7 @@ public class PeripheralAPI implements ILuaAPI, IAPIEnvironment.IPeripheralChange
                 final PeripheralWrapper wrapper = m_peripherals[side];
                 ComputerThread.queueTask( new ITask()
                 {
+                    @Nonnull
                     @Override
                     public Computer getOwner()
                     {
@@ -297,6 +298,7 @@ public class PeripheralAPI implements ILuaAPI, IAPIEnvironment.IPeripheralChange
                 final PeripheralWrapper wrapper = m_peripherals[side];
                 ComputerThread.queueTask( new ITask()
                 {
+                    @Nonnull
                     @Override
                     public Computer getOwner()
                     {
