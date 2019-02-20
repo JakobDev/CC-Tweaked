@@ -10,6 +10,7 @@ import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.shared.Peripherals;
 import dan200.computercraft.shared.util.IDAssigner;
+import dan200.computercraft.shared.util.NBTUtil;
 import net.minecraft.block.Block;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
@@ -113,18 +114,18 @@ public final class WiredModemLocalPeripheral
             : Collections.singletonMap( type + "_" + id, peripheral );
     }
 
-    public void writeNBT( @Nonnull NBTTagCompound tag, @Nonnull String suffix )
+    public void write( @Nonnull NBTTagCompound tag, @Nonnull String suffix )
     {
-        if( id >= 0 ) tag.setInteger( "peripheralID" + suffix, id );
-        if( type != null ) tag.setString( "peripheralType" + suffix, type );
+        if( id >= 0 ) tag.putInt( "peripheralID" + suffix, id );
+        if( type != null ) tag.putString( "peripheralType" + suffix, type );
     }
 
-    public void readNBT( @Nonnull NBTTagCompound tag, @Nonnull String suffix )
+    public void read( @Nonnull NBTTagCompound tag, @Nonnull String suffix )
     {
-        id = tag.hasKey( "peripheralID" + suffix, Constants.NBT.TAG_ANY_NUMERIC )
-            ? tag.getInteger( "peripheralID" + suffix ) : -1;
+        id = tag.contains( "peripheralID" + suffix, Constants.NBT.TAG_ANY_NUMERIC )
+            ? tag.getInt( "peripheralID" + suffix ) : -1;
 
-        type = tag.hasKey( "peripheralType" + suffix, Constants.NBT.TAG_STRING )
+        type = tag.contains( "peripheralType" + suffix, Constants.NBT.TAG_STRING )
             ? tag.getString( "peripheralType" + suffix ) : null;
     }
 
