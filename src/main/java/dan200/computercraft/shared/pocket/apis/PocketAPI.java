@@ -1,7 +1,6 @@
 /*
- * This file is part of ComputerCraft - http://www.computercraft.info
- * Copyright Daniel Ratcliffe, 2011-2019. Do not distribute without permission.
- * Send enquiries to dratcliffe@gmail.com
+ * This file is part of CC-Tweaked which is based on ComputerCraft by dan200 - https://computercraft.cc/
+ * This code is licensed under the ComputerCraft Public License
  */
 
 package dan200.computercraft.shared.pocket.apis;
