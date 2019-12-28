@@ -16,7 +16,9 @@ jobs:
         java-version: 1.8
 
     - name: Build with Gradle
-      run: ./gradlew build --no-daemon
+      run: |
+        ./gradlew build --no-daemon
+        ls
 
   lint-lua:
     name: Lint Lua
