@@ -16,7 +16,14 @@ jobs:
         java-version: 1.8
 
     - name: Build with Gradle
-      run: ./gradlew build --no-daemon
+      run: |
+        ./gradlew build --no-daemon
+        mv build/libs/*.jar CC-Tweaked.jar
+
+    - name: Upload Jar
+      with:
+        name: CC-Tweaked.jar
+        path: CC-Tweaked.jar
 
   lint-lua:
     name: Lint Lua
